@@ -155,6 +155,16 @@ class Accounts:
     def set_admin(self, user_id: int, is_admin: bool) -> None:
         self.db.execute("UPDATE users SET is_admin=? WHERE id=?", (int(is_admin), user_id))
 
+    def admin_count(self) -> int:
+        return self.db.one("SELECT COUNT(*) FROM users WHERE is_admin=1")[0]
+
+    def delete(self, user_id: int) -> None:
+        """Remove an account, its sessions and its encrypted wallet."""
+        with self.db.transaction():
+            self.db.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
+            self.db.execute("DELETE FROM wallets WHERE name=?", (f"u-{user_id}",))
+            self.db.execute("DELETE FROM users WHERE id=?", (user_id,))
+
     # ---------------------------------------------------------- sessions
     @staticmethod
     def _digest(token: str) -> bytes:

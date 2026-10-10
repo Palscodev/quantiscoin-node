@@ -55,3 +55,24 @@ def test_backup_bound_to_network():
         Keystore.from_json(ks.to_json(), DEVNET.magic)
     with pytest.raises(KeystoreError):
         Keystore.from_json("not json", REGTEST.magic)
+
+
+def test_config_from_environment():
+    from quantis.config import NodeConfig
+
+    base = NodeConfig(network="regtest", data_dir="x")
+    cfg = base.with_env({
+        "QUANTIS_ALLOWED_HOSTS": "a.example.com, b.example.com",
+        "QUANTIS_TRUST_PROXY": "true",
+        "QUANTIS_API_HOST": "0.0.0.0",
+        "QUANTIS_SESSION_DAYS": "2.5",
+        "PORT": "9000",
+    })
+    assert cfg.allowed_hosts == ["a.example.com", "b.example.com"]
+    assert cfg.trust_proxy is True and cfg.api_host == "0.0.0.0" and cfg.api_port == 9000 and cfg.session_days == 2.5
+    # Binding to all interfaces without naming the public domain is refused (host check would be meaningless).
+    with pytest.raises(ValueError):
+        base.with_env({"QUANTIS_API_HOST": "0.0.0.0"})
+    with pytest.raises(ValueError):
+        base.with_env({"QUANTIS_TRUST_PROXY": "maybe"})
+    assert base.with_env({}) is base

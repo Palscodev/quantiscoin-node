@@ -5,8 +5,10 @@ All mutation of chain state and mempool happens while holding `Node.lock`.
 from __future__ import annotations
 
 import logging
+import sqlite3
 import threading
 import time
+from pathlib import Path
 
 from .api.events import EventBus
 from .auth import Accounts
@@ -66,6 +68,7 @@ class Node:
         self.peers = PeerManager(self)
         self.webjobs = WebJobs(self)
         self.started_at = time.time()
+        self._stopping = threading.Event()
         self._restore_mempool()
 
     # ------------------------------------------------------------ mempool
@@ -90,11 +93,52 @@ class Node:
     # ----------------------------------------------------------- lifecycle
     def start(self) -> None:
         self.peers.start()
+        if self.config.backup_interval_hours > 0:
+            self._backup_thread = threading.Thread(target=self._backup_loop, name="quantis-backup", daemon=True)
+            self._backup_thread.start()
 
     def shutdown(self) -> None:
+        self._stopping.set()
         self.miner.stop()
         self.peers.stop()
+        try:
+            self.persist_mempool()
+        except Exception:  # never block shutdown on this
+            log.exception("could not save pending transactions")
         self.db.close()
+
+    # ------------------------------------------------------------ backups
+    @property
+    def backup_dir(self) -> Path:
+        return Path(self.config.data_dir) / "backups"
+
+    def backup_database(self) -> Path:
+        """Consistent snapshot of the whole database (chain, accounts, wallets) using SQLite's backup API."""
+        self.backup_dir.mkdir(parents=True, exist_ok=True)
+        dest = self.backup_dir / time.strftime("chain-%Y%m%d-%H%M%S.sqlite3")
+        n = 1
+        while dest.exists():
+            dest = self.backup_dir / time.strftime(f"chain-%Y%m%d-%H%M%S-{n}.sqlite3")
+            n += 1
+        target = sqlite3.connect(dest)
+        try:
+            with self.db.lock:
+                self.db.conn.backup(target)
+        finally:
+            target.close()
+        backups = sorted(self.backup_dir.glob("chain-*.sqlite3"), key=lambda p: p.stat().st_mtime)
+        for old in backups[: max(0, len(backups) - max(1, self.config.backup_keep))]:
+            old.unlink(missing_ok=True)
+        log.info("database backup written to %s", dest)
+        return dest
+
+    def _backup_loop(self) -> None:
+        interval = self.config.backup_interval_hours * 3600
+        while not self._stopping.wait(interval):
+            try:
+                self.backup_database()
+            except Exception:
+                log.exception("automatic backup failed")
 
     # ----------------------------------------------------------- ingestion
     def submit_block(self, block: Block, source: str = "local") -> ProcessResult:

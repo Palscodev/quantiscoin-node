@@ -14,7 +14,7 @@ from dataclasses import asdict, dataclass
 COIN = 100_000_000  # 1 QTS = 10^8 quanta (the atomic unit)
 TICKER = "QTS"
 PROTOCOL_VERSION = 1
-SOFTWARE_VERSION = "0.2.0"
+SOFTWARE_VERSION = "0.3.0"
 
 
 @dataclass(frozen=True)

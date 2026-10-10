@@ -4,9 +4,11 @@ Consensus parameters live in core/params.py and are selected by `network`.
 """
 from __future__ import annotations
 
+import os
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
+from typing import Mapping
 
 LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 
@@ -43,24 +45,66 @@ class NodeConfig:
     relay_target_bytes: int = 64_000
     mempool_max_bytes: int = 256_000
     log_level: str = "info"
+    backup_interval_hours: float = 24.0  # automatic database backups (0 = off)
+    backup_keep: int = 7  # how many automatic backups to keep
     source: str = "defaults"
 
     def __post_init__(self) -> None:
         if not self.advertise_url:
             host = "127.0.0.1" if self.p2p_bind in ("0.0.0.0", "::", "127.0.0.1") else self.p2p_bind
             self.advertise_url = f"http://{host}:{self.p2p_port}"
-        if self.api_host not in LOOPBACK and not self.allow_remote_api:
-            raise ValueError("api_host must be a loopback address unless allow_remote_api = true")
+        if self.api_host not in LOOPBACK and not (self.allow_remote_api or self.allowed_hosts):
+            raise ValueError(
+                "api_host is not a loopback address: list your public domain(s) in allowed_hosts "
+                "(or set allow_remote_api = true, which disables the host check)"
+            )
         for port in (self.api_port, self.p2p_port):
             if not (1 <= port <= 65535):
                 raise ValueError("ports must be in 1..65535")
+
+    @classmethod
+    def env_overrides(cls, env: Mapping[str, str] | None = None) -> dict:
+        """Read QUANTIS_<SETTING> environment variables (how hosting platforms configure apps).
+
+        Examples: QUANTIS_ALLOWED_HOSTS="a.com,b.com", QUANTIS_TRUST_PROXY=true. A plain PORT
+        variable (set by most hosting platforms) becomes api_port.
+        """
+        env = os.environ if env is None else env
+        defaults = cls()  # default instance: tells us each setting's type
+        changes: dict = {}
+        for f in fields(cls):
+            raw = env.get(f"QUANTIS_{f.name.upper()}")
+            if raw is None or f.name == "source":
+                continue
+            current = getattr(defaults, f.name)
+            if isinstance(current, bool):
+                if raw.strip().lower() not in ("1", "0", "true", "false", "yes", "no", "on", "off"):
+                    raise ValueError(f"QUANTIS_{f.name.upper()} must be true or false")
+                changes[f.name] = raw.strip().lower() in ("1", "true", "yes", "on")
+            elif isinstance(current, int):
+                changes[f.name] = int(raw)
+            elif isinstance(current, float):
+                changes[f.name] = float(raw)
+            elif isinstance(current, list):
+                changes[f.name] = [x.strip() for x in raw.split(",") if x.strip()]
+            else:
+                changes[f.name] = raw
+        if "PORT" in env and "api_port" not in changes:
+            changes["api_port"] = int(env["PORT"])
+        return changes
+
+    def with_env(self, env: Mapping[str, str] | None = None) -> "NodeConfig":
+        """This configuration with environment-variable overrides applied."""
+        changes = self.env_overrides(env)
+        return replace(self, **changes) if changes else self
 
     @property
     def db_path(self) -> Path:
         return Path(self.data_dir) / "chain.sqlite3"
 
     @classmethod
-    def load(cls, path: str | Path) -> "NodeConfig":
+    def load(cls, path: str | Path, env: Mapping[str, str] | None = None) -> "NodeConfig":
+        """Read a TOML file; QUANTIS_* environment variables (if any) take precedence."""
         with open(path, "rb") as f:
             raw = tomllib.load(f)
         flat: dict = {}
@@ -75,6 +119,7 @@ class NodeConfig:
         if unknown:
             raise ValueError(f"unknown configuration keys: {sorted(unknown)}")
         flat["source"] = str(path)
+        flat.update(cls.env_overrides(env))
         return cls(**flat)
 
     def public_dict(self) -> dict:

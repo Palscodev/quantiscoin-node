@@ -282,3 +282,59 @@ def test_pending_payments_survive_restart(tmp_path):
     assert bytes.fromhex(txid) in s2.node.mempool
     assert s2.client().get(f"/api/tx/{txid}").json()["status"] == "pending"
     s2.node.shutdown()
+
+
+def test_health_robots_sitemap_and_hsts(site):
+    c = site.client()
+    h = c.get("/api/health").json()
+    assert h["ok"] and h["height"] == 0
+    robots = c.get("/robots.txt").text
+    assert "Disallow: /wallet" in robots and "Sitemap: http://testserver/sitemap.xml" in robots
+    sm = c.get("/sitemap.xml")
+    assert sm.headers["content-type"].startswith("application/xml") and "<loc>http://testserver/faq</loc>" in sm.text
+    assert "strict-transport-security" not in c.get("/api/status").headers  # plain HTTP: no HSTS
+
+
+def test_hsts_behind_https_proxy(tmp_path):
+    s = Site(tmp_path, trust_proxy=True)
+    r = s.client().get("/api/status", headers={"x-forwarded-proto": "https"})
+    assert "max-age=31536000" in r.headers["strict-transport-security"]
+    s.node.shutdown()
+
+
+def test_delete_account(site):
+    admin = site.admin()
+    bob = site.user("bob")
+    assert bob.post("/api/auth/delete", json={"password": PASS, "confirm": "delete"}).status_code == 422
+    assert bob.post("/api/auth/delete", json={"password": "wrong pw", "confirm": "DELETE"}).status_code == 400
+    assert bob.post("/api/auth/delete", json={"password": PASS, "confirm": "DELETE"}).status_code == 200
+    assert bob.get("/api/me/wallet").status_code == 401
+    assert site.client().post("/api/auth/login", json={"username": "bob", "password": PASS}).status_code == 401
+    assert not site.node.wallets.exists("u-2")
+    # The only administrator cannot delete themselves.
+    r = admin.post("/api/auth/delete", json={"password": PASS, "confirm": "DELETE"})
+    assert r.status_code == 400 and "only administrator" in r.json()["detail"]
+
+
+def test_admin_backup_is_a_valid_database(site, tmp_path):
+    import sqlite3
+
+    admin = site.admin()
+    site.user("carol")
+    r = admin.get("/api/admin/backup")
+    assert r.status_code == 200
+    copy = tmp_path / "copy.sqlite3"
+    copy.write_bytes(r.content)
+    db = sqlite3.connect(copy)
+    assert db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 2
+    assert db.execute("SELECT COUNT(*) FROM blocks").fetchone()[0] == 1
+    db.close()
+    assert site.client().get("/api/admin/backup").status_code == 401
+
+
+def test_backups_are_pruned(tmp_path):
+    s = Site(tmp_path, backup_keep=2)
+    for _ in range(4):
+        s.node.backup_database()
+    assert len(list(s.node.backup_dir.glob("chain-*.sqlite3"))) == 2
+    s.node.shutdown()

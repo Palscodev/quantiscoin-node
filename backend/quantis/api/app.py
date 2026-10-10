@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import mimetypes
 import os
 import platform
 import sys
@@ -45,6 +46,7 @@ if TYPE_CHECKING:
     from ..node import Node
 
 log = logging.getLogger("quantis.api")
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 FRONTEND_DIST = Path(os.environ.get("QUANTIS_FRONTEND_DIST", Path(__file__).resolve().parents[3] / "frontend" / "dist"))
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "[::1]", "testserver"}
 COOKIE = "quantis_session"
@@ -159,6 +161,8 @@ def create_api_app(node: "Node") -> FastAPI:
             response.headers.setdefault(k, v)
         if request.url.path.startswith("/api/"):
             response.headers.setdefault("Cache-Control", "no-store")
+        if is_https(request):
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         return response
 
     @app.exception_handler(WalletError)
@@ -247,7 +251,31 @@ def create_api_app(node: "Node") -> FastAPI:
             node.accounts.end_all_sessions(user.id)
         return start_session(response, request, user)
 
+    @app.post("/api/auth/delete")
+    def auth_delete(body: schemas.DeleteAccount, request: Request, response: Response,
+                    user: User = Depends(require_user)):
+        limit("secret", f"u{user.id}")
+        if node.accounts.authenticate(user.username, body.password) is None:
+            raise HTTPException(400, "Your password is not correct.")
+        if user.is_admin and node.accounts.admin_count() <= 1:
+            raise HTTPException(400, "You are the only administrator. Make someone else an administrator first.")
+        with node.lock:
+            node.accounts.delete(user.id)
+        response.delete_cookie(COOKIE, path="/")
+        log.info("account deleted: %s", user.username)
+        return {"ok": True}
+
     # ============================================================ public
+    @app.get("/api/health")
+    def health():
+        """Liveness/readiness probe for hosting platforms and uptime monitors."""
+        try:
+            node.db.one("SELECT 1")
+            return {"ok": True, "height": node.chain.height, "version": SOFTWARE_VERSION,
+                    "uptime": round(time.time() - node.started_at)}
+        except Exception as e:  # database unavailable
+            return JSONResponse({"ok": False, "error": type(e).__name__}, status_code=503)
+
     @app.get("/api/status")
     def status():
         return node.status()
@@ -560,6 +588,11 @@ def create_api_app(node: "Node") -> FastAPI:
         node.accounts.set_admin(user_id, body.is_admin)
         return {"items": [u.public() for u in node.accounts.list()]}
 
+    @app.get("/api/admin/backup")
+    def admin_backup(_: User = Depends(require_admin)):
+        path = node.backup_database()
+        return FileResponse(path, media_type="application/octet-stream", filename=path.name)
+
     @app.get("/api/admin/diagnostics")
     def diagnostics(_: User = Depends(require_admin)):
         db_file = node.config.db_path
@@ -605,6 +638,30 @@ def create_api_app(node: "Node") -> FastAPI:
     @app.api_route("/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     def api_not_found(rest: str):
         raise HTTPException(404, "Unknown API endpoint.")
+
+    # ===================================================== search engines
+    PUBLIC_PAGES = ["", "how-it-works", "get-started", "mining", "economics", "economics/technical",
+                    "explorer", "network", "faq", "terms", "privacy", "signup"]
+
+    def site_origin(request: Request) -> str:
+        scheme = "https" if is_https(request) else request.url.scheme
+        return f"{scheme}://{request.headers.get('host', 'localhost')}"
+
+    @app.get("/robots.txt", include_in_schema=False)
+    def robots(request: Request):
+        return PlainTextResponse(
+            "User-agent: *\nDisallow: /api/\nDisallow: /wallet\nDisallow: /mine\nDisallow: /account\n"
+            f"Disallow: /admin\nSitemap: {site_origin(request)}/sitemap.xml\n"
+        )
+
+    @app.get("/sitemap.xml", include_in_schema=False)
+    def sitemap(request: Request):
+        base = site_origin(request)
+        urls = "".join(f"<url><loc>{base}/{p}</loc></url>" for p in PUBLIC_PAGES)
+        return Response(
+            f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>',
+            media_type="application/xml",
+        )
 
     # ========================================================== frontend
     dist = FRONTEND_DIST.resolve()

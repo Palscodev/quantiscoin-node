@@ -26,6 +26,11 @@ class PasswordChange(BaseModel):
     new: str = Field(min_length=8, max_length=256)
 
 
+class DeleteAccount(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+    confirm: str = Field(pattern=r"^DELETE$")  # the user must type DELETE
+
+
 class Passphrase(BaseModel):
     passphrase: str = Field(min_length=1, max_length=256)
 

@@ -24,7 +24,7 @@ def _cmd_node(args) -> int:
     from .node import Node
     from .p2p.app import create_p2p_app
 
-    cfg = NodeConfig.load(args.config) if args.config else NodeConfig()
+    cfg = (NodeConfig.load(args.config) if args.config else NodeConfig()).with_env()
     logging.basicConfig(level=cfg.log_level.upper(), format="%(asctime)s %(levelname)-7s %(name)s: %(message)s")
     node = Node(cfg)
 
@@ -111,7 +111,7 @@ def _cmd_admin(args) -> int:
     from .core.params import get_network
     from .storage.db import Database
 
-    cfg = NodeConfig.load(args.config) if args.config else NodeConfig()
+    cfg = (NodeConfig.load(args.config) if args.config else NodeConfig()).with_env()
     get_network(cfg.network)
     db = Database(cfg.db_path)
     accounts = Accounts(db, cfg.session_days)
