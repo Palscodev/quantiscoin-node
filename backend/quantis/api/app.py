@@ -570,11 +570,6 @@ def create_api_app(node: "Node") -> FastAPI:
         node.peers.remove(url)
         return {"items": node.peers.list()}
 
-    @app.post("/api/admin/price")
-    def set_price(body: schemas.Price, _: User = Depends(require_admin)):
-        node.set_usd_price(body.usd_per_qts)
-        return {"usd_price": node.usd_price}
-
     @app.get("/api/admin/users")
     def users(_: User = Depends(require_admin)):
         return {"items": [u.public() for u in node.accounts.list()]}

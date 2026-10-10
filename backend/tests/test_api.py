@@ -141,7 +141,6 @@ def test_wallets_are_private_and_admin_is_protected(site):
         assert anon.get(path).status_code == 401
         assert alice.get(path).status_code == 403
         assert admin.get(path).status_code == 200
-    assert alice.post("/api/admin/price", json={"usd_per_qts": 5}).status_code == 403
     # Logging out ends the session.
     alice.post("/api/auth/logout")
     assert alice.get("/api/me/wallet").status_code == 401
@@ -198,11 +197,10 @@ def test_browser_mining_pays_the_user(site):
     assert bob.post("/api/me/mine/submit", json={"job_id": job["job_id"], "nonce": "0"}).json()["status"] == "stale"
 
 
-def test_price_is_operator_set(site):
+def test_no_invented_dollar_price(site):
     admin = site.admin()
-    assert site.client().get("/api/status").json()["usd_price"] == 0
-    assert admin.post("/api/admin/price", json={"usd_per_qts": 2.5}).status_code == 200
-    assert site.client().get("/api/status").json()["usd_price"] == 2.5
+    assert site.client().get("/api/status").json()["usd_price"] is None
+    assert admin.post("/api/admin/price", json={"usd_per_qts": 2.5}).status_code == 404
 
 
 def test_input_validation_and_errors(site):

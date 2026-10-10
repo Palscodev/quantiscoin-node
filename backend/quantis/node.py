@@ -184,21 +184,6 @@ class Node:
             return build_template(self.chain, self.mempool, payout_h20, int(self.clock()),
                                   extra=extra if extra is not None else b"QuantisCoin/" + SOFTWARE_VERSION.encode())
 
-    # ------------------------------------------------------- display price
-    @property
-    def usd_price(self) -> float:
-        """Reference USD price per QTS, set by the node operator. NOT a market price."""
-        try:
-            return max(0.0, float(self.db.get_meta("usd_price") or 0))
-        except ValueError:
-            return 0.0
-
-    def set_usd_price(self, value: float) -> None:
-        if not (0 <= value <= 1e9):
-            raise ValueError("price must be between 0 and 1,000,000,000")
-        self.db.set_meta("usd_price", repr(float(value)))
-        self.events.publish("status", self.status())
-
     # -------------------------------------------------------------- status
     def observed_interval(self, window: int | None = None) -> float | None:
         # The genesis timestamp is a fixed constant, so the genesis->block-1 gap is
@@ -243,7 +228,9 @@ class Node:
                 "hashrate": self.miner.hashrate,
                 "uptime": time.time() - self.started_at,
                 "median_time_past": chain.mtp(tip),
-                "usd_price": self.usd_price,
+                # No market exists for QTS, so there is no dollar price. This stays null until a real,
+                # independent market price feed is integrated; the site never shows an invented price.
+                "usd_price": None,
                 "node_repo_url": self.config.node_repo_url,
                 "public_p2p_url": self.config.public_p2p_url,
                 "coinbase_maturity": p.coinbase_maturity,
