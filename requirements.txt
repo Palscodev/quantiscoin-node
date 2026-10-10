@@ -1,0 +1,7 @@
+# Runtime dependencies. Versions below were installed and tested on Windows 11 / CPython 3.14.
+# Lower bounds in pyproject.toml are what the code needs; these pins are a known-good set.
+fastapi==0.143.0
+uvicorn==0.54.0
+pydantic==2.14.0
+cryptography==50.0.2
+httpx==0.28.1

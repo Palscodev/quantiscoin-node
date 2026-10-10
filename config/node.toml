@@ -1,0 +1,29 @@
+# QuantisCoin node: edit the two lines marked EDIT, then run:
+#   python -m quantis node --config config/node.toml
+#
+# Consensus rules (rewards, halving, difficulty) are fixed by `network` and are
+# identical for every node; nothing in this file can change them.
+
+network = "devnet"
+data_dir = "data/node"
+
+# Local status API (this computer only): http://127.0.0.1:8331/api/status
+api_host = "127.0.0.1"
+api_port = 8331
+
+# Peer-to-peer. Your node connects OUT to the network, so it works behind a home
+# router without opening any ports.
+p2p_bind = "127.0.0.1"
+p2p_port = 9331
+
+# EDIT: the network's peer address, shown on the QuantisCoin website's Mining page.
+peers = []
+# peers = ["https://p2p.example.com"]
+
+log_level = "info"
+
+[mining]
+# EDIT: your wallet address from the QuantisCoin website (starts with Q).
+address = ""
+workers = 1          # CPU processes to mine with (1 on a Raspberry Pi; up to your core count elsewhere)
+low_power = false    # true = roughly half speed, cooler and quieter

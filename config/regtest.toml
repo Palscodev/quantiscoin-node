@@ -1,0 +1,8 @@
+# Regtest: trivial proof of work, H = 10, maturity = 3. For experiments and
+# demonstrations where you want halvings within seconds. Also enables
+# POST /api/dev/generate for instant block generation.
+network = "regtest"
+data_dir = "data/regtest"
+api_port = 8341
+p2p_port = 9341
+peers = []

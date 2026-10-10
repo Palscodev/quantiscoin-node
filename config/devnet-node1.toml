@@ -1,0 +1,37 @@
+# QuantisCoin devnet node 1: local, non-consensus settings only.
+# Consensus parameters (reward, halving interval, difficulty rules) are fixed by
+# 'network' and live in backend/quantis/core/params.py.
+
+network = "devnet"
+data_dir = "data/devnet-node1"
+
+# REST API + web UI. Loopback only; set allow_remote_api = true at your own risk.
+api_host = "127.0.0.1"
+api_port = 8331
+
+# Peer-to-peer server. 127.0.0.1 keeps this node private to this computer.
+# For a trusted home LAN, use p2p_bind = "0.0.0.0" and set advertise_url to
+# http://<this-computer's-LAN-IP>:9331
+p2p_bind = "127.0.0.1"
+p2p_port = 9331
+peers = ["http://127.0.0.1:9332", "http://127.0.0.1:9333"]
+discover = true
+max_peers = 8
+sync_interval = 3.0
+peer_timeout = 5.0
+max_message_bytes = 1048576
+
+log_level = "info"
+
+[mining]
+workers = 1          # 1 is recommended on a Raspberry Pi
+low_power = false
+address = ""         # set to auto-start mining at launch, or use the Miner screen
+
+[relay]
+base_rate = 10       # quanta per byte when the mempool is empty
+max_multiplier = 8   # fee rate bound at full congestion
+target_bytes = 64000 # mempool size at which the multiplier saturates
+
+[mempool]
+max_bytes = 256000

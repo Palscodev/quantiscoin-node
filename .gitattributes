@@ -1,0 +1,5 @@
+# Store and check out text files with LF endings on every OS (shell scripts break with CRLF).
+* text=auto eol=lf
+*.png binary
+*.woff binary
+*.woff2 binary
