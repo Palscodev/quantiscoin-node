@@ -338,17 +338,42 @@ def test_backups_are_pruned(tmp_path):
     s.node.shutdown()
 
 
-def test_demo_exchange_moves_nothing(site):
+def test_demo_exchange_is_a_consistent_ledger(site):
     site.admin()
     u = site.user("trader")
-    assert site.client().get("/api/exchange/info").json() == {"provider": "demo", "demo": True}
-    q = u.post("/api/me/exchange/quote", json={"side": "buy", "qts": 10 * COIN}).json()
-    assert q["demo"] and q["usd_cents"] == 1000 + q["fee_cents"]
-    r = u.post("/api/me/exchange/order", json={"side": "buy", "qts": 10 * COIN}).json()
-    assert r["status"] == "simulated" and r["demo"]
-    assert u.get("/api/me/wallet").json()["balance"]["confirmed"] == 0  # no coins created
-    assert len(u.get("/api/me/exchange/orders").json()["items"]) == 1
-    assert site.client().post("/api/me/exchange/order", json={"side": "buy", "qts": 1}).status_code == 401
+    info = site.client().get("/api/exchange/info").json()
+    assert info["provider"] == "demo" and info["demo"] and info["test_cards"]
+    card = {"number": "4242 4242 4242 4242", "exp_month": 12, "exp_year": 2099, "cvc": "123"}
+
+    def quote(**kw):
+        return u.post("/api/me/exchange/quote", json=kw).json()
+
+    q = quote(side="buy", qts=10 * COIN)
+    assert q["gross_cents"] == 1000 and q["total_cents"] == 1000 + q["fee_cents"]
+    assert u.post("/api/me/exchange/quote", json={"side": "buy", "usd_cents": 50}).status_code == 400  # under $1
+    # a real-looking (Luhn-valid) card is refused; declined test card records a declined order
+    real = card | {"number": "4111 1111 1111 1111"}
+    assert "test cards" in u.post("/api/me/exchange/buy", json={"quote_id": q["quote_id"], "method": "card", "card": real}).json()["detail"]
+    r = u.post("/api/me/exchange/buy", json={"quote_id": q["quote_id"], "method": "card", "card": card | {"number": "4000000000000002"}}).json()
+    assert r["status"] == "declined" and r["account"]["qts"] == 0
+    # quotes are single-use
+    assert u.post("/api/me/exchange/buy", json={"quote_id": q["quote_id"], "method": "card", "card": card}).status_code == 400
+    q = quote(side="buy", qts=10 * COIN)
+    r = u.post("/api/me/exchange/buy", json={"quote_id": q["quote_id"], "method": "card", "card": card}).json()
+    assert r["status"] == "completed" and r["card_last4"] == "4242" and r["account"]["qts"] == 10 * COIN
+    # cannot sell more than held; selling credits demo cash, which can then pay for a buy
+    assert u.post("/api/me/exchange/sell", json={"quote_id": quote(side="sell", qts=11 * COIN)["quote_id"]}).status_code == 400
+    r = u.post("/api/me/exchange/sell", json={"quote_id": quote(side="sell", qts=4 * COIN)["quote_id"]}).json()
+    assert r["account"]["qts"] == 6 * COIN and r["account"]["cash_cents"] == 400 - r["quote"]["fee_cents"]
+    big = quote(side="buy", qts=5 * COIN)
+    assert u.post("/api/me/exchange/buy", json={"quote_id": big["quote_id"], "method": "cash"}).status_code == 400
+    small = quote(side="buy", qts=2 * COIN)
+    r = u.post("/api/me/exchange/buy", json={"quote_id": small["quote_id"], "method": "cash"}).json()
+    assert r["status"] == "completed" and r["account"]["cash_cents"] == 400 - 6 - small["total_cents"]
+    # the real wallet is never touched
+    assert u.get("/api/me/wallet").json()["balance"]["confirmed"] == 0
+    assert len(u.get("/api/me/exchange/account").json()["orders"]) == 4
+    assert site.client().post("/api/me/exchange/quote", json={"side": "buy", "qts": COIN}).status_code == 401
 
 
 def test_partner_exchange_requires_key_and_live_flag(tmp_path):

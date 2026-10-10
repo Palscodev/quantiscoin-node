@@ -31,9 +31,29 @@ class DeleteAccount(BaseModel):
     confirm: str = Field(pattern=r"^DELETE$")  # the user must type DELETE
 
 
-class ExchangeOrder(BaseModel):
+class ExchangeQuote(BaseModel):
     side: str = Field(pattern=r"^(buy|sell)$")
-    qts: int = Field(gt=0, le=MAX_AMOUNT)
+    qts: int | None = Field(default=None, gt=0, le=MAX_AMOUNT)
+    usd_cents: int | None = Field(default=None, gt=0, le=10**9)
+
+
+class DemoCard(BaseModel):
+    number: str = Field(max_length=30)
+    exp_month: int = Field(ge=0, le=99)
+    exp_year: int = Field(ge=0, le=9999)
+    cvc: str = Field(max_length=4)
+    name: str = Field(default="", max_length=100)
+    postal: str = Field(default="", max_length=12)
+
+
+class ExchangeBuy(BaseModel):
+    quote_id: str = Field(max_length=40)
+    method: str = Field(pattern=r"^(card|cash)$")
+    card: DemoCard | None = None
+
+
+class ExchangeSell(BaseModel):
+    quote_id: str = Field(max_length=40)
 
 
 class Passphrase(BaseModel):

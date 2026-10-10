@@ -521,23 +521,25 @@ def create_api_app(node: "Node") -> FastAPI:
 
     @app.get("/api/exchange/info")
     def exchange_info():
-        return {"provider": node.exchange.name, "demo": node.exchange.demo}
+        return node.exchange.info()
+
+    @app.get("/api/me/exchange/account")
+    def exchange_account(user: User = Depends(require_user)):
+        return node.exchange.account(user.id)
 
     @app.post("/api/me/exchange/quote")
-    def exchange_quote(body: schemas.ExchangeOrder, user: User = Depends(require_user)):
-        return node.exchange.quote(body.side, body.qts).view()
+    def exchange_quote(body: schemas.ExchangeQuote, user: User = Depends(require_user)):
+        return node.exchange.quote(user.id, body.side, body.qts, body.usd_cents).view()
 
-    @app.post("/api/me/exchange/order")
-    def exchange_order(body: schemas.ExchangeOrder, user: User = Depends(require_user)):
+    @app.post("/api/me/exchange/buy")
+    def exchange_buy(body: schemas.ExchangeBuy, user: User = Depends(require_user)):
         limit("send", f"u{user.id}")
-        q = node.exchange.quote(body.side, body.qts)
-        return node.exchange.place(user.id, q, node.wallets.first_address(user.wallet_name)) | {"quote": q.view()}
+        return node.exchange.buy(user.id, body.quote_id, body.method, body.card.model_dump() if body.card else None)
 
-    @app.get("/api/me/exchange/orders")
-    def exchange_orders(user: User = Depends(require_user)):
-        rows = node.db.all("SELECT id, side, qts, usd_cents, status, created FROM exchange_orders WHERE user_id=? "
-                           "ORDER BY created DESC LIMIT 50", (user.id,))
-        return {"items": [dict(zip(["id", "side", "qts", "usd_cents", "status", "created"], r)) for r in rows]}
+    @app.post("/api/me/exchange/sell")
+    def exchange_sell(body: schemas.ExchangeSell, user: User = Depends(require_user)):
+        limit("send", f"u{user.id}")
+        return node.exchange.sell(user.id, body.quote_id)
 
     @app.post("/api/tx/raw")
     def submit_raw(body: schemas.RawTx, user: User = Depends(require_user)):

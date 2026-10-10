@@ -60,10 +60,13 @@ CREATE TABLE IF NOT EXISTS sessions (
     token_hash BLOB PRIMARY KEY, user_id INTEGER NOT NULL, created INTEGER NOT NULL, expires INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
-CREATE TABLE IF NOT EXISTS exchange_orders (
+CREATE TABLE IF NOT EXISTS exchange_trades (
     id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, side TEXT NOT NULL, qts INTEGER NOT NULL,
-    usd_cents INTEGER NOT NULL, address TEXT NOT NULL, status TEXT NOT NULL, created INTEGER NOT NULL
+    gross_cents INTEGER NOT NULL, fee_cents INTEGER NOT NULL, total_cents INTEGER NOT NULL, method TEXT NOT NULL,
+    card_brand TEXT, card_last4 TEXT, status TEXT NOT NULL, failure TEXT, created INTEGER NOT NULL
 );
+CREATE INDEX IF NOT EXISTS exchange_trades_user ON exchange_trades(user_id);
+DROP TABLE IF EXISTS exchange_orders;
 CREATE TABLE IF NOT EXISTS mempool_txs (txid BLOB PRIMARY KEY, raw BLOB NOT NULL, received INTEGER NOT NULL);
 """
 
