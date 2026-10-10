@@ -31,6 +31,11 @@ class DeleteAccount(BaseModel):
     confirm: str = Field(pattern=r"^DELETE$")  # the user must type DELETE
 
 
+class ExchangeOrder(BaseModel):
+    side: str = Field(pattern=r"^(buy|sell)$")
+    qts: int = Field(gt=0, le=MAX_AMOUNT)
+
+
 class Passphrase(BaseModel):
     passphrase: str = Field(min_length=1, max_length=256)
 

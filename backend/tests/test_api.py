@@ -336,3 +336,26 @@ def test_backups_are_pruned(tmp_path):
         s.node.backup_database()
     assert len(list(s.node.backup_dir.glob("chain-*.sqlite3"))) == 2
     s.node.shutdown()
+
+
+def test_demo_exchange_moves_nothing(site):
+    site.admin()
+    u = site.user("trader")
+    assert site.client().get("/api/exchange/info").json() == {"provider": "demo", "demo": True}
+    q = u.post("/api/me/exchange/quote", json={"side": "buy", "qts": 10 * COIN}).json()
+    assert q["demo"] and q["usd_cents"] == 1000 + q["fee_cents"]
+    r = u.post("/api/me/exchange/order", json={"side": "buy", "qts": 10 * COIN}).json()
+    assert r["status"] == "simulated" and r["demo"]
+    assert u.get("/api/me/wallet").json()["balance"]["confirmed"] == 0  # no coins created
+    assert len(u.get("/api/me/exchange/orders").json()["items"]) == 1
+    assert site.client().post("/api/me/exchange/order", json={"side": "buy", "qts": 1}).status_code == 401
+
+
+def test_partner_exchange_requires_key_and_live_flag(tmp_path):
+    with pytest.raises(ValueError):
+        Site(tmp_path, exchange_provider="partner")
+    s = Site(tmp_path / "b", exchange_provider="partner", exchange_api_key="k", exchange_live=True)
+    s.admin()
+    r = s.user("xy").post("/api/me/exchange/quote", json={"side": "buy", "qts": COIN})
+    assert r.status_code == 400 and "not been connected" in r.json()["detail"]
+    s.node.shutdown()

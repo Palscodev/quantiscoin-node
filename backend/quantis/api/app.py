@@ -35,6 +35,7 @@ from ..core.params import COIN, SOFTWARE_VERSION, TICKER
 from ..core.tx import Tx
 from ..core.validation import ValidationError
 from ..explorer import block_summary, block_view, tx_view
+from ..exchange import ExchangeError
 from ..mining.miner import MinerError
 from ..mining.template import solve
 from ..mining.webjobs import WebMiningError
@@ -170,6 +171,7 @@ def create_api_app(node: "Node") -> FastAPI:
     @app.exception_handler(AuthError)
     @app.exception_handler(KeystoreError)
     @app.exception_handler(MinerError)
+    @app.exception_handler(ExchangeError)
     @app.exception_handler(WebMiningError)
     @app.exception_handler(ValueError)
     async def bad_request(_: Request, exc: Exception):
@@ -516,6 +518,26 @@ def create_api_app(node: "Node") -> FastAPI:
     def mine_submit(body: schemas.MineSubmit, user: User = Depends(require_user)):
         limit("submit", f"u{user.id}")
         return node.webjobs.submit(user.id, body.job_id, int(body.nonce))
+
+    @app.get("/api/exchange/info")
+    def exchange_info():
+        return {"provider": node.exchange.name, "demo": node.exchange.demo}
+
+    @app.post("/api/me/exchange/quote")
+    def exchange_quote(body: schemas.ExchangeOrder, user: User = Depends(require_user)):
+        return node.exchange.quote(body.side, body.qts).view()
+
+    @app.post("/api/me/exchange/order")
+    def exchange_order(body: schemas.ExchangeOrder, user: User = Depends(require_user)):
+        limit("send", f"u{user.id}")
+        q = node.exchange.quote(body.side, body.qts)
+        return node.exchange.place(user.id, q, node.wallets.first_address(user.wallet_name)) | {"quote": q.view()}
+
+    @app.get("/api/me/exchange/orders")
+    def exchange_orders(user: User = Depends(require_user)):
+        rows = node.db.all("SELECT id, side, qts, usd_cents, status, created FROM exchange_orders WHERE user_id=? "
+                           "ORDER BY created DESC LIMIT 50", (user.id,))
+        return {"items": [dict(zip(["id", "side", "qts", "usd_cents", "status", "created"], r)) for r in rows]}
 
     @app.post("/api/tx/raw")
     def submit_raw(body: schemas.RawTx, user: User = Depends(require_user)):

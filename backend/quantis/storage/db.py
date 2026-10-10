@@ -60,6 +60,10 @@ CREATE TABLE IF NOT EXISTS sessions (
     token_hash BLOB PRIMARY KEY, user_id INTEGER NOT NULL, created INTEGER NOT NULL, expires INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
+CREATE TABLE IF NOT EXISTS exchange_orders (
+    id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, side TEXT NOT NULL, qts INTEGER NOT NULL,
+    usd_cents INTEGER NOT NULL, address TEXT NOT NULL, status TEXT NOT NULL, created INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS mempool_txs (txid BLOB PRIMARY KEY, raw BLOB NOT NULL, received INTEGER NOT NULL);
 """
 

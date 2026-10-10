@@ -45,6 +45,9 @@ class NodeConfig:
     relay_target_bytes: int = 64_000
     mempool_max_bytes: int = 256_000
     log_level: str = "info"
+    exchange_provider: str = "demo"  # "demo" (simulated) or "partner" (licensed partner, see exchange.py)
+    exchange_api_key: str = ""  # set with QUANTIS_EXCHANGE_API_KEY, never in a committed file
+    exchange_live: bool = False  # must be true, on purpose, before any real-money provider is used
     backup_interval_hours: float = 24.0  # automatic database backups (0 = off)
     backup_keep: int = 7  # how many automatic backups to keep
     source: str = "defaults"

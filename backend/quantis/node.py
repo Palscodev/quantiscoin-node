@@ -30,6 +30,7 @@ from .core.tx import Tx
 from .core.validation import ValidationError
 from .mining.miner import Miner
 from .mining.template import Template, build_template
+from .exchange import make_provider
 from .mining.webjobs import WebJobs
 from .p2p.peers import PeerManager
 from .storage.db import Database
@@ -67,6 +68,7 @@ class Node:
         self.miner = Miner(self)
         self.peers = PeerManager(self)
         self.webjobs = WebJobs(self)
+        self.exchange = make_provider(self)
         self.started_at = time.time()
         self._stopping = threading.Event()
         self._restore_mempool()
