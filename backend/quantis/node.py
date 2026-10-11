@@ -49,12 +49,46 @@ def next_retarget_height(height: int, p) -> int:
     return -(-nxt // w) * w
 
 
+IMPORT_FILES = ("chain.sqlite3", "exchange-treasury.secret")
+
+
+def apply_pending_import(data_dir: str | Path) -> bool:
+    """Move data uploaded to <data_dir>/import/ into place before the database opens.
+
+    This is how data is carried to a new host: upload chain.sqlite3 (and the treasury
+    secret) into import/, restart, and the node swaps them in. The replaced files are
+    kept in replaced-<time>/, and the import folder is emptied so it happens only once.
+    """
+    data = Path(data_dir)
+    incoming = data / "import" / "chain.sqlite3"
+    if not incoming.is_file():
+        return False
+    con = sqlite3.connect(f"file:{incoming.as_posix()}?mode=ro", uri=True)
+    try:
+        if con.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+            raise RuntimeError("import/chain.sqlite3 failed its integrity check; not importing it")
+    finally:
+        con.close()
+    old = data / f"replaced-{int(time.time())}"
+    old.mkdir()
+    for name in ("chain.sqlite3", "chain.sqlite3-wal", "chain.sqlite3-shm", "exchange-treasury.secret"):
+        if (data / name).exists():
+            (data / name).replace(old / name)
+    for name in IMPORT_FILES:
+        if (data / "import" / name).exists():
+            (data / "import" / name).replace(data / name)
+    log.warning("imported data from %s (previous files kept in %s)", data / "import", old)
+    return True
+
+
 class Node:
     def __init__(self, config: NodeConfig, clock=time.time) -> None:
         self.config = config
         self.params = get_network(config.network)
         self.clock = clock
         self.lock = threading.RLock()
+        if config.data_dir != ":memory:":
+            apply_pending_import(config.data_dir)
         self.db = Database(config.db_path)
         self.chain = ChainState(self.db, self.params, clock)
         self.mempool = Mempool(

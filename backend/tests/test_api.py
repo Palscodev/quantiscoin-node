@@ -407,3 +407,27 @@ def test_partner_exchange_requires_key_and_live_flag(tmp_path):
     r = s.user("xy").post("/api/me/exchange/quote", json={"side": "buy", "qts": COIN})
     assert r.status_code == 400 and "not been connected" in r.json()["detail"]
     s.node.shutdown()
+
+
+def test_uploaded_import_folder_replaces_data_on_restart(tmp_path):
+    s = Site(tmp_path)
+    s.admin()
+    s.node.backup_database()
+    backup = sorted(s.node.backup_dir.glob("*.sqlite3"))[-1]
+    treasury = s.node.exchange.treasury_address
+    s.node.shutdown()
+    s.node.db.close()
+    # a fresh node on another "host", then the backup is uploaded to import/ and it restarts
+    t = Site(tmp_path / "new")
+    assert not t.node.accounts.has_admin()
+    t.node.shutdown()
+    t.node.db.close()
+    data = tmp_path / "new" / "n"
+    (data / "import").mkdir()
+    (data / "import" / "chain.sqlite3").write_bytes(backup.read_bytes())
+    (data / "import" / "exchange-treasury.secret").write_text((tmp_path / "n" / "exchange-treasury.secret").read_text())
+    u = Site(tmp_path / "new")
+    assert u.node.accounts.has_admin()  # the admin account came across
+    assert not (data / "import" / "chain.sqlite3").exists() and list(data.glob("replaced-*"))
+    assert u.node.exchange.treasury_address == treasury
+    u.node.shutdown()

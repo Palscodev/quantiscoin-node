@@ -156,6 +156,35 @@ def _cmd_admin(args) -> int:
     return 0
 
 
+def _cmd_export_data(args) -> int:
+    """Write a consistent copy of this node's data to a folder, ready to upload to a new host's
+    data volume under import/ (the node swaps it in at its next start)."""
+    import shutil
+    import sqlite3
+    from pathlib import Path
+
+    from .config import NodeConfig
+
+    cfg = (NodeConfig.load(args.config) if args.config else NodeConfig()).with_env()
+    src = Path(cfg.db_path)
+    if not src.is_file():
+        print(f"no database at {src}", file=sys.stderr)
+        return 2
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    dest = out / "chain.sqlite3"
+    dest.unlink(missing_ok=True)
+    with sqlite3.connect(f"file:{src.as_posix()}?mode=ro", uri=True) as s, sqlite3.connect(dest) as d:
+        s.backup(d)  # safe even while the node is running
+    secret = Path(cfg.data_dir) / "exchange-treasury.secret"
+    if secret.is_file():
+        shutil.copyfile(secret, out / secret.name)
+    print(f"wrote {out.resolve()}  (keep it private: it contains the exchange reserve's key)")
+    for f in sorted(out.iterdir()):
+        print(f"  {f.name}  {f.stat().st_size:,} bytes")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="quantis", description="QuantisCoin educational blockchain node")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -173,9 +202,12 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("action", choices=["create", "list", "promote", "reset-password"])
     a.add_argument("username", nargs="?")
     a.add_argument("--config", help="TOML configuration file")
+    e = sub.add_parser("export-data", help="copy this node's data into a folder, ready to move to a new host")
+    e.add_argument("--config", help="TOML configuration file")
+    e.add_argument("--out", default="data-export")
     args = ap.parse_args(argv)
     return {"node": _cmd_node, "bench": _cmd_bench, "genesis": _cmd_genesis, "policy": _cmd_policy,
-            "admin": _cmd_admin}[args.cmd](args)
+            "admin": _cmd_admin, "export-data": _cmd_export_data}[args.cmd](args)
 
 
 if __name__ == "__main__":
