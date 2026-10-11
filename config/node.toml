@@ -16,9 +16,9 @@ api_port = 8331
 p2p_bind = "127.0.0.1"
 p2p_port = 9331
 
-# EDIT: the network's peer address, shown on the QuantisCoin website's Mining page.
-peers = []
-# peers = ["https://p2p.example.com"]
+# The public QuantisCoin network. Your node connects here by itself; nobody has to
+# approve it. You can add more peers (other people's public nodes) to this list.
+peers = ["https://quantiscoin.nestlyprint.com"]
 
 log_level = "info"
 

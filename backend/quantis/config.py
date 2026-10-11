@@ -37,6 +37,9 @@ class NodeConfig:
     cookie_secure: str = "auto"  # "auto" (secure when served over HTTPS), "always" or "never"
     node_repo_url: str = ""  # public source code of the node software, linked from the website
     public_p2p_url: str = ""  # address other people's nodes should connect to (shown on the website)
+    # Also answer peer-to-peer requests (/p2p/...) on the website's own address, so anyone's node can
+    # join through the same domain and HTTPS as the site: no extra port, tunnel or operator approval.
+    p2p_on_api: bool = False
     mining_workers: int = 1
     mining_low_power: bool = False
     mining_address: str = ""

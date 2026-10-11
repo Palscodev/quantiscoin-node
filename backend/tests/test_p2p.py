@@ -137,3 +137,14 @@ def test_local_host_classification():
 
     assert _is_local_host("127.0.0.1") and _is_local_host("192.168.1.20") and _is_local_host("localhost")
     assert not _is_local_host("p2p.example.org") and not _is_local_host("8.8.8.8")
+
+
+def test_home_node_joins_through_the_website_address_without_approval(nodes):
+    # The public site answers P2P on its own web address; a home node is given only that address.
+    site = nodes("site", p2p_on_api=True)
+    home = nodes("home", peers=[site.api_url])
+    gen(site, ADDR_A, 3)
+    wait_for(lambda: home.node.chain.tip.hash == site.node.chain.tip.hash, msg="home node syncs from the site")
+    gen(home, ADDR_C, 2)  # blocks mined at home reach the site with nobody adding the home node
+    wait_for(lambda: site.node.chain.tip.hash == home.node.chain.tip.hash, msg="site accepts the home node's blocks")
+    assert site.node.chain.height == 5

@@ -22,7 +22,7 @@ def _cmd_node(args) -> int:
     from .api.app import create_api_app
     from .config import NodeConfig
     from .node import Node
-    from .p2p.app import create_p2p_app
+    from .p2p.app import PathRouter, create_p2p_app
 
     cfg = (NodeConfig.load(args.config) if args.config else NodeConfig()).with_env()
     logging.basicConfig(level=cfg.log_level.upper(), format="%(asctime)s %(levelname)-7s %(name)s: %(message)s")
@@ -33,7 +33,10 @@ def _cmd_node(args) -> int:
         def capture_signals(self):  # signals are handled once, below, for both servers
             yield
 
-    api = _Server(uvicorn.Config(create_api_app(node), host=cfg.api_host, port=cfg.api_port,
+    site = create_api_app(node)
+    if cfg.p2p_on_api:  # other nodes can reach this one at the website's address
+        site = PathRouter(site, create_p2p_app(node, behind_proxy=cfg.trust_proxy))
+    api = _Server(uvicorn.Config(site, host=cfg.api_host, port=cfg.api_port,
                                  log_level="warning", access_log=False))
     p2p = _Server(uvicorn.Config(create_p2p_app(node), host=cfg.p2p_bind, port=cfg.p2p_port, log_level="warning",
                                  access_log=False, limit_concurrency=64, timeout_keep_alive=5))

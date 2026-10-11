@@ -431,3 +431,23 @@ def test_uploaded_import_folder_replaces_data_on_restart(tmp_path):
     assert not (data / "import" / "chain.sqlite3").exists() and list(data.glob("replaced-*"))
     assert u.node.exchange.treasury_address == treasury
     u.node.shutdown()
+
+
+def test_website_address_also_serves_p2p_and_tells_proxied_peers_apart(tmp_path):
+    from quantis.p2p.app import PathRouter, create_p2p_app
+    s = Site(tmp_path, trust_proxy=True)
+    both = TestClient(PathRouter(s.app, create_p2p_app(s.node, behind_proxy=True)))
+    magic = s.node.params.magic.hex()
+    hello = both.get("/p2p/hello", headers={"x-quantis-magic": magic}).json()
+    assert hello["genesis"] == s.node.chain.active[0].hash.hex()  # P2P answered on the site's address
+    assert both.get("/api/health").json()["ok"]  # and the website still works
+    assert both.get("/p2p/hello", headers={"x-quantis-magic": "00000000"}).status_code == 400  # other networks refused
+    # Through a tunnel everyone is 127.0.0.1 and home nodes all call themselves http://127.0.0.1:9331.
+    # A node that sends garbage is banned by ITS visitor IP only; an honest node keeps working.
+    bad = {"x-quantis-magic": magic, "cf-connecting-ip": "203.0.113.7", "x-quantis-peer": "http://127.0.0.1:9331"}
+    good = {"x-quantis-magic": magic, "cf-connecting-ip": "198.51.100.9", "x-quantis-peer": "http://127.0.0.1:9331"}
+    for _ in range(5):
+        both.post("/p2p/block", content=b"garbage", headers=bad)
+    assert both.get("/p2p/hello", headers=bad).status_code == 403
+    assert both.get("/p2p/hello", headers=good).status_code == 200
+    s.node.shutdown()

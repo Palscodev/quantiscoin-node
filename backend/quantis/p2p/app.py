@@ -50,18 +50,44 @@ class BodyLimit:
         return await self.app(scope, limited, send)
 
 
-def create_p2p_app(node: "Node") -> FastAPI:
+class PathRouter:
+    """One address for both: /p2p/... goes to the P2P app, everything else to the website/API app."""
+
+    def __init__(self, api, p2p) -> None:
+        self.api, self.p2p = api, p2p
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("path", "").startswith("/p2p/"):
+            return await self.p2p(scope, receive, send)
+        return await self.api(scope, receive, send)
+
+
+def create_p2p_app(node: "Node", behind_proxy: bool = False) -> FastAPI:
+    """behind_proxy: requests arrive through a reverse proxy or tunnel, so every sender appears as
+    127.0.0.1. Peers are then told apart by the visitor IP the proxy reports, never by the
+    self-declared X-Quantis-Peer header (nodes behind home routers all declare 127.0.0.1), so one
+    misbehaving node cannot get everyone banned."""
     app = FastAPI(title="QuantisCoin P2P", docs_url=None, redoc_url=None, openapi_url=None)
     magic = node.params.magic.hex()
     peers = node.peers
 
+    def remote_host(request: Request) -> str:
+        if behind_proxy:
+            for header in ("cf-connecting-ip", "x-forwarded-for"):
+                v = request.headers.get(header)
+                if v:
+                    return v.split(",")[0].strip()[:64]
+        return request.client.host if request.client else "?"
+
     def client_id(request: Request) -> str:
-        return request.headers.get("x-quantis-peer") or (request.client.host if request.client else "?")
+        if behind_proxy:
+            return remote_host(request)
+        return request.headers.get("x-quantis-peer") or remote_host(request)
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
         who = client_id(request)
-        host = request.client.host if request.client else "?"
+        host = remote_host(request)
         if peers.is_banned(who) or peers.is_banned(host):
             return JSONResponse({"error": "banned"}, status_code=403)
         if request.headers.get("x-quantis-magic", magic) != magic:

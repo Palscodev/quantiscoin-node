@@ -13,7 +13,7 @@ import uvicorn
 from quantis.api.app import create_api_app
 from quantis.config import NodeConfig
 from quantis.node import Node
-from quantis.p2p.app import create_p2p_app
+from quantis.p2p.app import PathRouter, create_p2p_app
 
 
 def free_port() -> int:
@@ -38,7 +38,7 @@ class RunningNode:
         self.api_url = f"http://127.0.0.1:{self.api_port}"
         self.p2p_url = f"http://127.0.0.1:{self.p2p_port}"
         self._servers = [
-            _Server(uvicorn.Config(create_api_app(self.node), host="127.0.0.1", port=self.api_port, log_level="error")),
+            _Server(uvicorn.Config(self._site(), host="127.0.0.1", port=self.api_port, log_level="error")),
             _Server(uvicorn.Config(create_p2p_app(self.node), host="127.0.0.1", port=self.p2p_port, log_level="error")),
         ]
         self._thread = threading.Thread(target=lambda: asyncio.run(self._main()), daemon=True)
@@ -49,6 +49,12 @@ class RunningNode:
                 raise RuntimeError("servers did not start")
             time.sleep(0.05)
         self.node.start()
+
+    def _site(self):
+        site = create_api_app(self.node)
+        if self.cfg.p2p_on_api:
+            site = PathRouter(site, create_p2p_app(self.node, behind_proxy=self.cfg.trust_proxy))
+        return site
 
     def admin(self, password: str = "correct horse battery") -> httpx.Client:
         """An HTTP client logged in as this node's administrator (created on first use)."""

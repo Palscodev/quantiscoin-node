@@ -32,9 +32,9 @@ macOS / Linux / Raspberry Pi:
 bash scripts/setup_pi.sh
 ```
 
-**3. Edit `config/node.toml`:**
-* `peers`: the network's peer address, shown on the QuantisCoin website's **Mining** page.
-* `[mining] address`: your wallet address from the website (it starts with `Q`). Rewards are paid there.
+**3. Edit `config/node.toml`:** set `[mining] address` to your wallet address from the website (it starts with `Q`). Rewards are paid there.
+
+That is the only setting you need. `peers` already points at the public network, so your node joins by itself: nobody has to approve it, and you don't need to open any ports on your router. Your node downloads and checks every block itself, and the blocks it finds are shared with the network straight away.
 
 **4. Start the node:**
 
