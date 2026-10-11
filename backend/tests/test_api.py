@@ -444,8 +444,10 @@ def test_website_address_also_serves_p2p_and_tells_proxied_peers_apart(tmp_path)
     assert both.get("/p2p/hello", headers={"x-quantis-magic": "00000000"}).status_code == 400  # other networks refused
     # Through a tunnel everyone is 127.0.0.1 and home nodes all call themselves http://127.0.0.1:9331.
     # A node that sends garbage is banned by ITS visitor IP only; an honest node keeps working.
-    bad = {"x-quantis-magic": magic, "cf-connecting-ip": "203.0.113.7", "x-quantis-peer": "http://127.0.0.1:9331"}
-    good = {"x-quantis-magic": magic, "cf-connecting-ip": "198.51.100.9", "x-quantis-peer": "http://127.0.0.1:9331"}
+    # Via Vercel + Cloudflare: cf-connecting-ip is Vercel's shared address; X-Forwarded-For starts with the visitor.
+    vercel = {"x-quantis-magic": magic, "cf-connecting-ip": "76.76.21.1", "x-quantis-peer": "http://127.0.0.1:9331"}
+    bad = vercel | {"x-forwarded-for": "203.0.113.7, 76.76.21.1"}
+    good = vercel | {"x-forwarded-for": "198.51.100.9, 76.76.21.1"}
     for _ in range(5):
         both.post("/p2p/block", content=b"garbage", headers=bad)
     assert both.get("/p2p/hello", headers=bad).status_code == 403

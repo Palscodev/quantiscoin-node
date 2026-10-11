@@ -93,7 +93,9 @@ def create_api_app(node: "Node") -> FastAPI:
     # ------------------------------------------------------------ helpers
     def client_ip(request: Request) -> str:
         if cfg.trust_proxy:
-            for header in ("cf-connecting-ip", "x-forwarded-for"):
+            # First X-Forwarded-For entry = the visitor. (Through Vercel + Cloudflare, cf-connecting-ip
+            # would be Vercel's own address, shared by everyone.)
+            for header in ("x-forwarded-for", "cf-connecting-ip"):
                 v = request.headers.get(header)
                 if v:
                     return v.split(",")[0].strip()[:64]

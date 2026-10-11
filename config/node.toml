@@ -18,7 +18,7 @@ p2p_port = 9331
 
 # The public QuantisCoin network. Your node connects here by itself; nobody has to
 # approve it. You can add more peers (other people's public nodes) to this list.
-peers = ["https://quantiscoin.nestlyprint.com"]
+peers = ["https://quantiscoin.vercel.app"]
 
 log_level = "info"
 

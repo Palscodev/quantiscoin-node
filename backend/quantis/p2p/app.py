@@ -73,7 +73,7 @@ def create_p2p_app(node: "Node", behind_proxy: bool = False) -> FastAPI:
 
     def remote_host(request: Request) -> str:
         if behind_proxy:
-            for header in ("cf-connecting-ip", "x-forwarded-for"):
+            for header in ("x-forwarded-for", "cf-connecting-ip"):
                 v = request.headers.get(header)
                 if v:
                     return v.split(",")[0].strip()[:64]
