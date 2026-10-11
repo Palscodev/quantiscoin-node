@@ -54,6 +54,7 @@ class ExchangeBuy(BaseModel):
 
 class ExchangeSell(BaseModel):
     quote_id: str = Field(max_length=40)
+    passphrase: str = Field(min_length=1, max_length=256)
 
 
 class Passphrase(BaseModel):

@@ -26,7 +26,7 @@ def test_on_schedule_is_fixed_point():
 
 
 def test_bounds_per_window():
-    t = 1 << 230
+    t = 1 << 222
     d, c = P.damping, P.clamp_factor
     # fastest: x((d-1) + 1/c)/d (harder); slowest: x((d-1) + c)/d (easier). Devnet: x0.625 .. x2.5
     assert retarget(t, 0, P) == t * ((d - 1) * c + 1) // (d * c)
@@ -38,7 +38,7 @@ def test_bounds_per_window():
 
 
 def test_direction():
-    t = 1 << 230
+    t = 1 << 222
     assert retarget(t, E // 2, P) < t  # blocks too fast -> smaller target (harder)
     assert retarget(t, 2 * E, P) > t  # too slow -> larger target (easier)
 
@@ -52,7 +52,7 @@ def test_damping_halves_error_geometrically():
     # Hash rate is 2x what target t0 was tuned for. Block time is proportional to
     # (expected hashes)/(hash rate) = (2^256/t)/rate, so A = E * (t0/t) / 2 and the
     # equilibrium is t = t0/2. The deviation should shrink geometrically.
-    t0 = 1 << 232
+    t0 = 1 << 222
     t = t0
     errors = []
     for _ in range(30):
@@ -110,5 +110,5 @@ def test_median_time_past():
 
 def test_custom_params_bounds():
     p = replace(P, damping=1, clamp_factor=2)
-    t = 1 << 230
+    t = 1 << 222
     assert retarget(t, 0, p) == t // 2 and retarget(t, 10**9, p) == 2 * t

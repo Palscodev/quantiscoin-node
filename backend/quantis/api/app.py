@@ -525,21 +525,21 @@ def create_api_app(node: "Node") -> FastAPI:
 
     @app.get("/api/me/exchange/account")
     def exchange_account(user: User = Depends(require_user)):
-        return node.exchange.account(user.id)
+        return node.exchange.account(user)
 
     @app.post("/api/me/exchange/quote")
     def exchange_quote(body: schemas.ExchangeQuote, user: User = Depends(require_user)):
-        return node.exchange.quote(user.id, body.side, body.qts, body.usd_cents).view()
+        return node.exchange.quote(user, body.side, body.qts, body.usd_cents).view()
 
     @app.post("/api/me/exchange/buy")
     def exchange_buy(body: schemas.ExchangeBuy, user: User = Depends(require_user)):
         limit("send", f"u{user.id}")
-        return node.exchange.buy(user.id, body.quote_id, body.method, body.card.model_dump() if body.card else None)
+        return node.exchange.buy(user, body.quote_id, body.method, body.card.model_dump() if body.card else None)
 
     @app.post("/api/me/exchange/sell")
     def exchange_sell(body: schemas.ExchangeSell, user: User = Depends(require_user)):
-        limit("send", f"u{user.id}")
-        return node.exchange.sell(user.id, body.quote_id)
+        limit("secret", f"u{user.id}")
+        return node.exchange.sell(user, body.quote_id, body.passphrase)
 
     @app.post("/api/tx/raw")
     def submit_raw(body: schemas.RawTx, user: User = Depends(require_user)):

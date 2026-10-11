@@ -134,7 +134,7 @@ E[hashes] = 2²⁵⁶ / (T + 1),        E[block time] = E[hashes] / (network has
 work(T) = ⌊2²⁵⁶ / (T + 1)⌋,        difficulty = pow_limit / T
 ```
 
-On devnet, `initial_target` = 2²²⁹, so a block needs about **134 million hashes** on average until the first retarget. `pow_limit` (the easiest target ever allowed) is 2²³⁶ (about 1 million hashes), so even a single Raspberry Pi can always produce blocks if it is the only miner. Measured on this project's development PC (see [BENCHMARKS.md](BENCHMARKS.md)): 8 browser threads sustained about 1.6 MH/s (≈ 85 s per block at launch difficulty), and one Python worker about 0.25 MH/s (≈ 9 minutes per block). A Raspberry Pi has not been measured. Once many people mine, the controller raises the difficulty so that the *whole network* finds one block per minute.
+On devnet, `initial_target` = 2²²⁶, so a block needs about **1.07 billion hashes** on average until the first retarget. `pow_limit` (the easiest target ever allowed) is 2²³⁰, about **67 million hashes**: the difficulty never falls below that, however few people mine. Measured on this project's development PC (see [BENCHMARKS.md](BENCHMARKS.md)): 8 browser threads sustained about 1.6 MH/s, so a lone PC needs about 11 minutes per block at launch difficulty and about 42 s at the floor; one Python worker (about 0.25 MH/s) needs about 4.5 minutes per block at the floor. A Raspberry Pi has not been measured. Once many people mine, the controller raises the difficulty so that the *whole network* finds one block per minute.
 
 ### 6.2 Controller
 Let W = 10 (retarget window), T_b = 60 s, E = W·T_b = 600 s, d = 2 (damping), c = 4 (clamp).

@@ -16,6 +16,12 @@ from .params import NetworkParams
 from .tx import make_coinbase
 
 
+# sha256(header prefix) -> smallest valid nonce, for networks whose genesis is slow to search.
+KNOWN_NONCES: dict[str, int] = {
+    "8a5e63060e7c14c6d55efae650c94e839c70f5f16081df79cc8f6d1af486555f": 4293413,  # devnet
+}
+
+
 @lru_cache(maxsize=8)
 def genesis_block(p: NetworkParams) -> Block:
     cb = make_coinbase(0, [], p.genesis_message.encode()[:92])
@@ -29,8 +35,15 @@ def genesis_block(p: NetworkParams) -> Block:
         nonce=0,
     )
     # Smallest nonce that satisfies the proof of work (SHA-256 midstate for speed).
+    # Known results are cached below so nodes start instantly; they are still verified
+    # (meets_target), and any other parameters fall back to the search.
     base = hashlib.sha256(header.prefix())
     target = header.target
+    known = KNOWN_NONCES.get(hashlib.sha256(header.prefix()).hexdigest())
+    if known is not None:
+        block = Block(header=header.with_nonce(known), txs=[cb])
+        if block.header.meets_target():
+            return block
     nonce = 0
     while True:
         h = base.copy()

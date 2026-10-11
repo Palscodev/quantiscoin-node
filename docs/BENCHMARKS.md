@@ -10,7 +10,7 @@ The per-second samples swing by **3–10×** within a single run, for example `[
 
 ## Native node miner (Python worker processes)
 
-| Workers | Measured range (MH/s) | Median of 2nd half of run | Expected time per block at launch difficulty (134 million hashes) |
+| Workers | Measured range (MH/s) | Median of 2nd half of run | Expected time per block at the old launch difficulty (134 million hashes; now 1.07 billion) |
 |---|---|---|---|
 | 1 | 0.11 – 0.79 | 0.24 | ≈ 9.4 min |
 | 2 | 0.22 – 1.69 | 0.43 | ≈ 5.3 min |
@@ -28,7 +28,7 @@ Runs: 2026-10-09 17:01 (4 s), 2026-10-10 07:32 (12 s, while the test suite was a
 
 ## Raspberry Pi
 
-**Not measured**: no Raspberry Pi was available. Run `python -m quantis bench` on the Pi and add the results here. Based on typical single-core SHA-256 performance, we *expect* a Pi 4 to manage very roughly 0.1–0.3 MH/s per core in Python. If it were the only miner at launch, a block would take tens of minutes until the first difficulty retarget (block 30). After that the difficulty can fall by up to 2.5× every 10 blocks, down to the floor of about 1 million hashes per block, which a Pi can always meet.
+**Not measured**: no Raspberry Pi was available. Run `python -m quantis bench` on the Pi and add the results here. Based on typical single-core SHA-256 performance, we *expect* a Pi 4 to manage very roughly 0.1–0.3 MH/s per core in Python. If it were the only miner at launch, a block would take tens of minutes until the first difficulty retarget (block 30). After that the difficulty can fall by up to 2.5× every 10 blocks, down to the floor of about 67 million hashes per block (roughly 4 to 11 minutes for a Pi as the only miner).
 
 ## How to reproduce
 

@@ -29,8 +29,8 @@ class NetworkParams:
     retarget_window: int = 10  # W, blocks
     damping: int = 2  # d, controller damping factor
     clamp_factor: int = 4  # observed window time is clamped to [E/c, E*c]
-    pow_limit: int = 1 << 236  # easiest permitted target (~1 million hashes: a lone Raspberry Pi can always mine)
-    initial_target: int = 1 << 229  # target until the first retarget (~134 million hashes per block)
+    pow_limit: int = 1 << 230  # easiest permitted target (~67 million hashes per block, the difficulty floor)
+    initial_target: int = 1 << 226  # target until the first retarget (~1.07 billion hashes per block)
     mtp_span: int = 11  # blocks in the median-time-past
     max_future_drift: int = 120  # seconds a timestamp may lead the validating node's clock
     # --- resource limits --------------------------------------------------

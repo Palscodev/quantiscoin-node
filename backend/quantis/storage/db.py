@@ -63,7 +63,7 @@ CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
 CREATE TABLE IF NOT EXISTS exchange_trades (
     id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, side TEXT NOT NULL, qts INTEGER NOT NULL,
     gross_cents INTEGER NOT NULL, fee_cents INTEGER NOT NULL, total_cents INTEGER NOT NULL, method TEXT NOT NULL,
-    card_brand TEXT, card_last4 TEXT, status TEXT NOT NULL, failure TEXT, created INTEGER NOT NULL
+    card_brand TEXT, card_last4 TEXT, status TEXT NOT NULL, failure TEXT, txid TEXT, created INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS exchange_trades_user ON exchange_trades(user_id);
 DROP TABLE IF EXISTS exchange_orders;
@@ -81,6 +81,9 @@ class Database:
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA synchronous=FULL")
         self.conn.executescript(SCHEMA)
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(exchange_trades)")}
+        if "txid" not in cols:  # databases created before trades moved real coins
+            self.conn.execute("ALTER TABLE exchange_trades ADD COLUMN txid TEXT")
         self._depth = 0
         with self.transaction():
             row = self.one("SELECT value FROM meta WHERE key='schema_version'")
