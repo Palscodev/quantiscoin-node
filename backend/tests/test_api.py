@@ -513,3 +513,17 @@ def test_chain_restart_keeps_accounts_wallets_and_addresses(tmp_path):
     sealed = json.loads(t.node.db.one("SELECT keystore FROM wallets WHERE name=?", (name,))[0])
     assert sealed["network_magic"] == t.node.params.magic.hex()  # quietly re-sealed for this network
     t.node.shutdown()
+
+
+def test_shop_widget_mines_for_the_shops_address_without_login(site):
+    site.admin()
+    shop = site.user("shop").get("/api/me/wallet").json()["addresses"][0]["address"]
+    visitor = site.client()  # not logged in
+    assert visitor.post("/api/widget/job", json={"address": "nonsense-address-0000", "client": "abcd"}).status_code == 400
+    job = visitor.post("/api/widget/job", json={"address": shop, "client": "abcd1234", "hashrate": 500_000}).json()
+    r = visitor.post("/api/widget/submit", json={"client": "abcd1234", "job_id": job["job_id"], "nonce": str(solve_job(job))}).json()
+    assert r["status"] == "accepted"
+    assert visitor.get(f"/api/address/{shop}").json()["balance"] == r["reward"]  # paid the shop
+    # another visitor can't submit someone else's job
+    assert site.client().post("/api/widget/submit", json={"client": "zzzz9999", "job_id": job["job_id"], "nonce": "0"}).json()["status"] == "stale"
+    assert site.client().get("/api/status").json()["live_miners"] >= 1

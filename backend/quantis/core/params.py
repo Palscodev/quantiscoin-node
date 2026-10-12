@@ -39,6 +39,7 @@ class NetworkParams:
     max_tx_inputs: int = 64
     max_tx_outputs: int = 64
     min_fee_per_byte: int = 1  # consensus fee floor, quanta per serialized byte
+    fee_burn_percent: int = 10  # share of each block's fees that can never be claimed (destroyed)
     # --- identity -----------------------------------------------------------
     genesis_timestamp: int = 1791763200  # 2026-10-12T00:00:00Z (network restart)
     genesis_message: str = "QuantisCoin by Om Palsule, 12 Oct 2026: slow and steady"
@@ -65,7 +66,14 @@ class NetworkParams:
         return hashlib.sha256(b"QUANTIS/net/v1" + self.canonical_json().encode()).digest()[:4]
 
 
-DEVNET = NetworkParams(name="devnet")
+DEVNET = NetworkParams(name="devnet")  # for development and testing; same rules as mainnet
+
+# The public QuantisCoin network.
+MAINNET = NetworkParams(
+    name="mainnet",
+    genesis_timestamp=1791806400,  # 2026-10-12T12:00:00Z
+    genesis_message="QuantisCoin mainnet, created by Om Palsule, 12 Oct 2026",
+)
 
 # Regtest: trivial proof of work and short eras so automated tests run in milliseconds.
 REGTEST = NetworkParams(
@@ -81,7 +89,7 @@ REGTEST = NetworkParams(
     initial_target=(1 << 255) - 1,
 )
 
-NETWORKS = {p.name: p for p in (DEVNET, REGTEST)}
+NETWORKS = {p.name: p for p in (MAINNET, DEVNET, REGTEST)}
 
 
 def get_network(name: str) -> NetworkParams:

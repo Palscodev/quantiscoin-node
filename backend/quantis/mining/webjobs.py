@@ -84,7 +84,7 @@ class WebJobs:
             "prefix": h.prefix().hex(),
             "target": f"{h.target:064x}",
             "height": h.height,
-            "reward": template.subsidy + template.fees,
+            "reward": template.reward,
             "expires_in": JOB_TTL,
         }
 

@@ -11,6 +11,7 @@ P2P data, and no endpoint returns private keys or seeds.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import mimetypes
 import os
@@ -522,6 +523,29 @@ def create_api_app(node: "Node") -> FastAPI:
     def mine_submit(body: schemas.MineSubmit, user: User = Depends(require_user)):
         limit("submit", f"u{user.id}")
         return node.webjobs.submit(user.id, body.job_id, int(body.nonce))
+
+    # ---------------------------------------------------------- shop widget
+    def widget_id(request: Request, client: str) -> int:
+        """A stable negative id per visitor + widget instance (never collides with real user ids)."""
+        digest = hashlib.sha256(f"{client_ip(request)}|{client}".encode()).digest()
+        return -1 - int.from_bytes(digest[:6], "big")
+
+    @app.post("/api/widget/job")
+    def widget_job(body: schemas.WidgetJob, request: Request):
+        limit("job", f"w{client_ip(request)}")
+        try:
+            payout = decode_address(body.address.strip(), p.address_version)
+        except AddressError as e:
+            raise HTTPException(400, f"invalid shop address: {e}") from None
+        wid = widget_id(request, body.client)
+        if body.hashrate is not None:
+            node.webjobs.report(wid, body.client, body.hashrate)
+        return node.webjobs.new_job(wid, payout)
+
+    @app.post("/api/widget/submit")
+    def widget_submit(body: schemas.WidgetSubmit, request: Request):
+        limit("submit", f"w{client_ip(request)}")
+        return node.webjobs.submit(widget_id(request, body.client), body.job_id, int(body.nonce))
 
     @app.get("/api/exchange/info")
     def exchange_info():

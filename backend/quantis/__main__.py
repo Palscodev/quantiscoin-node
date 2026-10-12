@@ -224,7 +224,8 @@ def _cmd_reset_chain(args) -> int:
         legacy = {m for m in (db.get_meta("legacy_magics") or "").split(",") if m}
         legacy = sorted((legacy | magics) - {current, ""})
         with db.transaction():
-            for table in ("blocks", "active", "utxo", "undo", "txindex", "addrtx", "mempool_txs"):
+            # Chain data, plus Buy & sell history and demo cash, which refer to the old chain's coins.
+            for table in ("blocks", "active", "utxo", "undo", "txindex", "addrtx", "mempool_txs", "exchange_trades"):
                 db.execute(f"DELETE FROM {table}")
             db.execute("DELETE FROM meta WHERE key IN ('genesis', 'network')")
             db.set_meta("legacy_magics", ",".join(legacy))

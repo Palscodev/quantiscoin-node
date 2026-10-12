@@ -6,6 +6,7 @@ from .core.address import encode_address
 from .core.block import Block
 from .core.chainstate import ChainState
 from .core.mempool import Mempool
+from .core.fees import fee_burn
 from .core.monetary import block_subsidy
 from .core.tx import Tx
 from .core.hashing import hash20
@@ -82,6 +83,7 @@ def block_summary(chain: ChainState, height: int) -> dict:
         "n_tx": row[0],
         "size": row[1],
         "fees": row[2] or 0,
+        "burned": fee_burn(row[2] or 0, chain.p),
         "subsidy": block_subsidy(height, chain.p),
         "target": f"{idx.target:064x}",
         "difficulty": chain.p.pow_limit / idx.target,
@@ -107,6 +109,7 @@ def block_view(chain: ChainState, block: Block) -> dict:
         "size": row[1] if row else block.size,
         "subsidy": block_subsidy(h.height, chain.p),
         "fees": (row[0] or 0) if row else 0,
+        "burned": fee_burn((row[0] or 0) if row else 0, chain.p),
         "reward_paid": block.txs[0].total_out(),
         "chainwork": f"{idx.chainwork:x}" if idx else None,
         "active": active,

@@ -196,6 +196,7 @@ r = 10, M = 8, B* = 64 000 bytes; B = current mempool bytes
 
 | network | magic | genesis hash |
 |---|---|---|
+| mainnet | `145f70cc` | `0000000cadca2968726afdb648cd04d5a131bd0a2ad423df06cd14d6a8bd2e90` (nonce 53 599 343) |
 | devnet | `cd30e428` | `00000033a93d9e8d8c7316c8e16239df4ba9f09d5e237be479e7135eeff27d82` (nonce 113 177 371) |
 | regtest | `70451193` | `71870e80fc67bbcc4719c23da325de1f9bae2ae9dcf4037efd5e16ea06e4dd83` |
 

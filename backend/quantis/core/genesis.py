@@ -18,6 +18,7 @@ from .tx import make_coinbase
 
 # sha256(header prefix) -> smallest valid nonce, for networks whose genesis is slow to search.
 KNOWN_NONCES: dict[str, int] = {
+    "2bfa0bb7ebc66318b37e98c04e1230ba58fb048023eb3e4f493898f3895c92ce": 53599343,  # mainnet
     "e5789173cd36e907d645bbfc8ccf4f7a60cb8f8e15b9c2813a1844102c3280bf": 113177371,  # devnet (restarted 2026-10-12, 30-minute blocks)
 }
 

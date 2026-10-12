@@ -10,7 +10,7 @@ from typing import Callable, Optional
 
 from . import crypto
 from .block import Block, BlockHeader
-from .fees import consensus_min_fee
+from .fees import consensus_min_fee, fee_burn
 from .hashing import hash20
 from .monetary import block_subsidy
 from .params import NetworkParams
@@ -151,7 +151,7 @@ def connect_block_txs(block: Block, lookup: UtxoLookup, p: NetworkParams) -> tup
         for n, o in enumerate(t.outputs):
             created[(t.txid, n)] = Utxo(o.amount, o.h20, height, False)
     cb = block.txs[0]
-    allowed = block_subsidy(height, p) + fees
+    allowed = block_subsidy(height, p) + fees - fee_burn(fees, p)  # the burned share can't be claimed
     _require(cb.total_out() <= allowed, "blk-bad-reward", f"coinbase pays {cb.total_out()} > allowed {allowed}")
     for n, o in enumerate(cb.outputs):
         created[(cb.txid, n)] = Utxo(o.amount, o.h20, height, True)

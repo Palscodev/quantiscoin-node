@@ -185,7 +185,7 @@ class Miner:
                 "n_tx": len(block.txs),
                 "time": int(time.time()),
             }
-            self._log("accepted", f"block {block.header.height} accepted, reward {template.subsidy + template.fees} quanta",
+            self._log("accepted", f"block {block.header.height} accepted, reward {template.reward} quanta",
                       height=block.header.height, hash=block.hash.hex())
         else:
             self.rejected += 1

@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass
 
 from ..core.block import Block, BlockHeader
+from ..core.fees import fee_burn
 from ..core.chainstate import ChainState
 from ..core.mempool import Mempool
 from ..core.merkle import merkle_root
@@ -20,6 +21,11 @@ class Template:
     txs: list
     subsidy: int
     fees: int
+    burned: int = 0  # part of `fees` that is destroyed, not paid to the miner
+
+    @property
+    def reward(self) -> int:
+        return self.subsidy + self.fees - self.burned
 
     def block_with_nonce(self, nonce: int) -> Block:
         return Block(header=self.header.with_nonce(nonce), txs=self.txs)
@@ -35,7 +41,8 @@ def build_template(chain: ChainState, mempool: Mempool | None, payout_h20: bytes
     entries = mempool.select(p.max_block_bytes - COINBASE_RESERVE) if mempool else []
     fees = sum(e.fee for e in entries)
     subsidy = block_subsidy(height, p)
-    reward = subsidy + fees
+    burned = fee_burn(fees, p)
+    reward = subsidy + fees - burned
     cb = make_coinbase(height, [TxOut(reward, payout_h20)] if reward > 0 else [], extra[:92])
     txs = [cb] + [e.tx for e in entries]
     header = BlockHeader(
@@ -47,7 +54,7 @@ def build_template(chain: ChainState, mempool: Mempool | None, payout_h20: bytes
         target=chain.next_target(prev),
         nonce=0,
     )
-    return Template(header, txs, subsidy, fees)
+    return Template(header, txs, subsidy, fees, burned)
 
 
 def solve(template: Template, max_tries: int = 1 << 32) -> Block:

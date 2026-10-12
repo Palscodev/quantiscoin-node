@@ -4,7 +4,7 @@
 # Consensus rules (rewards, halving, difficulty) are fixed by `network` and are
 # identical for every node; nothing in this file can change them.
 
-network = "devnet"
+network = "mainnet"
 data_dir = "data/node"
 
 # Local status API (this computer only): http://127.0.0.1:8331/api/status

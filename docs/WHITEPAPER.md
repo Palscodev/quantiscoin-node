@@ -1,6 +1,6 @@
 # QuantisCoin: a proof-of-work currency anyone can mine
 
-**Om Palsule** · Version 1.0 · October 2026 · Public beta
+**Om Palsule** · Version 1.1 · October 2026 · Mainnet, public beta
 
 > QuantisCoin is in a public beta that will last at least one month. During the beta, QTS has no cash value, is not sold by the project, and is not traded on any exchange. This paper describes a technical design. It is not an offer of anything, and it makes no claim about what QTS is or will be worth.
 
@@ -91,6 +91,8 @@ A new node needs no permission to join. The default configuration connects outwa
 
 Fees are paid per byte. The consensus floor is 1 quantum per byte. Above that, each node's relay policy rises linearly with how full its memory pool is, from 10 to at most 80 quanta per byte, so fees stay bounded and predictable. A typical payment costs a fraction of a cent's worth of QTS. Miners include the highest fee-rate transactions first.
 
+**Fee burn.** A block's miner may claim the block reward plus only 90% of the fees in it. The other 10% (rounded up) is never created, so it is permanently removed from circulation. This is a consensus rule checked by every node. At today's low transaction volume the amount burned is tiny compared with new issuance; it matters only if the network becomes busy.
+
 ## 9. Security model and known limits
 
 - **51% attacks.** Like every proof-of-work chain, an attacker controlling most of the mining power could reverse recent transactions. A small network is more exposed. Waiting for more confirmations reduces the risk for large payments.
@@ -100,7 +102,7 @@ Fees are paid per byte. The consensus floor is 1 quantum per byte. Above that, e
 
 ## 10. Beta and what comes next
 
-The current network is a public beta that will last at least one month. The goal of the beta is to find problems while the coins carry no cash value. The intention is that balances earned during the beta carry over to the official launch, but this is not guaranteed.
+The current network, **mainnet**, launched on 12 October 2026 and is intended to be QuantisCoin's permanent chain. It starts in a public beta that will last at least one month. The goal of the beta is to find problems while the coins carry no cash value. The intention is that balances earned during the beta carry over to the official launch, but this is not guaranteed.
 
 Planned work, in rough order:
 

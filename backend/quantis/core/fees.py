@@ -19,6 +19,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
+def fee_burn(fees: int, p) -> int:
+    """Quanta of a block's fees that are burned: fee_burn_percent of them, rounded up."""
+    return -(-fees * p.fee_burn_percent // 100)
+
+
 @dataclass(frozen=True)
 class FeePolicy:
     base_rate: int = 10  # quanta per byte when the mempool is empty

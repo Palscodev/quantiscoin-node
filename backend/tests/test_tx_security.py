@@ -46,9 +46,26 @@ def test_valid_spend_and_fee(harness, alice, bob):
     assert entry.fee == 5000
     blk = harness.mine(alice.h20)[0]
     assert tx.txid in [t.txid for t in blk.txs]
-    assert blk.txs[0].total_out() == block_subsidy(blk.header.height, REGTEST) + 5000
+    # 10% of fees are burned: the miner gets the subsidy plus 4500 of the 5000 fee
+    assert blk.txs[0].total_out() == block_subsidy(blk.header.height, REGTEST) + 4500
     assert harness.chain.get_utxo((tx.txid, 0)).amount == amount - 5000
     assert harness.chain.get_utxo(op) is None
+
+
+def test_coinbase_cannot_claim_burned_fees(harness, alice, bob):
+    from dataclasses import replace
+    from quantis.core.merkle import merkle_root
+    from quantis.core.tx import TxOut, make_coinbase
+    from quantis.mining.template import Template, solve
+    op, amount = mature_coin(harness, alice)
+    harness.mempool.accept(harness.spend(alice, [op], [(bob.h20, amount - 5000)]))
+    t = harness.template(alice.h20)
+    assert (t.fees, t.burned, t.reward) == (5000, 500, t.subsidy + 4500)
+    greedy_cb = make_coinbase(t.header.height, [TxOut(t.subsidy + 5000, alice.h20)], b"greedy")
+    txs = [greedy_cb] + t.txs[1:]
+    greedy = Template(replace(t.header, merkle_root=merkle_root([x.txid for x in txs])), txs, t.subsidy, t.fees)
+    res = harness.chain.process_block(solve(greedy), NOW)
+    assert (res.status, res.reason) == ("invalid", "blk-bad-reward")
 
 
 def test_bad_signature_rejected(harness, alice, bob):
