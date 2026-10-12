@@ -43,6 +43,21 @@ class WalletService:
         self.db, self.chain, self.mempool = db, chain, mempool
         self.p = chain.p
 
+    @property
+    def legacy(self) -> frozenset[str]:
+        """Fingerprints of networks this node ran before a chain restart (see `quantis reset-chain`).
+        Wallets made there keep their addresses and still open with the same password."""
+        raw = self.db.get_meta("legacy_magics") or ""
+        return frozenset(m for m in raw.split(",") if m)
+
+    def _upgrade(self, name: str, ks: Keystore, seed: bytes, passphrase: str) -> None:
+        """Re-seal a wallet from an earlier network for this one (same seed, so same addresses)."""
+        if ks.data.get("network_magic") == self.p.magic.hex():
+            return
+        fresh = Keystore.create(passphrase, self.p.magic, self.p.address_version, seed=seed, n_addresses=len(ks.addresses))
+        fresh.data["created"] = ks.data.get("created", fresh.data["created"])
+        self._save(name, fresh, new=False)
+
     # ------------------------------------------------------------- storage
     def names(self) -> list[str]:
         return [r[0] for r in self.db.all("SELECT name FROM wallets ORDER BY name")]
@@ -51,7 +66,7 @@ class WalletService:
         row = self.db.one("SELECT keystore FROM wallets WHERE name=?", (name,))
         if row is None:
             raise WalletError(f"wallet {name!r} not found")
-        return Keystore.from_json(row[0], self.p.magic)
+        return Keystore.from_json(row[0], self.p.magic, self.legacy)
 
     def _save(self, name: str, ks: Keystore, new: bool) -> None:
         if new:
@@ -73,7 +88,7 @@ class WalletService:
 
     def import_backup(self, name: str, backup_json: str, passphrase: str) -> dict:
         self._check_new_name(name)
-        ks = Keystore.from_json(backup_json, self.p.magic)
+        ks = Keystore.from_json(backup_json, self.p.magic, self.legacy)
         ks.verify_addresses(passphrase, self.p.address_version)
         self._save(name, ks, new=True)
         return self.summary(name)
@@ -88,7 +103,7 @@ class WalletService:
 
     def seed_from_backup(self, backup_json: str, backup_passphrase: str) -> tuple[bytes, int]:
         """Decrypt and verify a backup file; return (seed, number of addresses)."""
-        ks = Keystore.from_json(backup_json, self.p.magic)
+        ks = Keystore.from_json(backup_json, self.p.magic, self.legacy)
         ks.verify_addresses(backup_passphrase, self.p.address_version)
         return ks.unlock(backup_passphrase), len(ks.addresses)
 
@@ -319,6 +334,7 @@ class WalletService:
         for k, inp in zip(keys, tx.inputs):
             inp.sig = k.sign(digest)
         tx.invalidate_cache()
+        self._upgrade(name, ks, seed, passphrase)
         del seed, keys
         try:
             self.mempool.accept(tx)

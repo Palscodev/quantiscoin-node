@@ -94,7 +94,9 @@ class ChainState:
         if stored is None:
             self._init_genesis(g)
         elif stored != g.hash.hex():
-            raise RuntimeError("data directory belongs to a different network (genesis mismatch)")
+            raise RuntimeError(
+                "data directory belongs to a different network (genesis mismatch). If the network was "
+                "restarted, run:  python -m quantis reset-chain --config <your config> --yes  (keeps all accounts)")
         rows = self.db.all("SELECT hash, prev, height, timestamp, target, chainwork, status FROM blocks ORDER BY height")
         for h, prev, height, ts, target, work, status in rows:
             parent = self.index.get(prev)

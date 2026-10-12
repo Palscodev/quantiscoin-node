@@ -1,14 +1,14 @@
 # QuantisCoin node
 
-The open-source node software for **QuantisCoin (QTS)**, a small proof-of-work cryptocurrency built from scratch as a learning project. Run it on a desktop or a Raspberry Pi to keep your own copy of the blockchain, check every rule yourself, and mine coins with your CPU.
+The open-source node software for **QuantisCoin (QTS)**, a proof-of-work cryptocurrency built from scratch by Om Palsule, now in public beta. Run it on a desktop or a Raspberry Pi to keep your own copy of the blockchain, check every rule yourself, and mine coins with your CPU.
 
-> **Learning project.** QTS is not traded anywhere and has no market value. See [docs/SECURITY.md](docs/SECURITY.md) for the security model and its limitations.
+> **Public beta.** QTS is not traded anywhere and has no cash value during the beta. Read the [whitepaper](docs/WHITEPAPER.md) for the design. See [docs/SECURITY.md](docs/SECURITY.md) for the security model and its limitations.
 
 | | |
 |---|---|
 | Block reward | 25 QTS, halving every 200,000 blocks |
 | Maximum supply | 10,000,000 QTS |
-| Block time | 60 seconds target; difficulty adjusts every 10 blocks |
+| Block time | 30 minutes target; difficulty adjusts every 10 blocks |
 | Proof of work | SHA-256d over a 124-byte header |
 | Signatures | ECDSA secp256k1, strict DER, low-S |
 

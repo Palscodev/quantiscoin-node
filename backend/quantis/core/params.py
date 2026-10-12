@@ -22,10 +22,10 @@ class NetworkParams:
     name: str
     # --- monetary policy -------------------------------------------------
     initial_reward: int = 25 * COIN  # R_0 in quanta (25 QTS)
-    halving_interval: int = 200_000  # H, blocks per reward era (about 139 days at 60 s)
+    halving_interval: int = 200_000  # H, blocks per reward era (about 11.4 years at 30-minute blocks)
     coinbase_maturity: int = 10  # confirmations before a coinbase output is spendable
     # --- proof of work / difficulty -------------------------------------
-    target_block_time: int = 60  # T, seconds
+    target_block_time: int = 1800  # T, seconds (one block about every 30 minutes)
     retarget_window: int = 10  # W, blocks
     damping: int = 2  # d, controller damping factor
     clamp_factor: int = 4  # observed window time is clamped to [E/c, E*c]
@@ -40,8 +40,8 @@ class NetworkParams:
     max_tx_outputs: int = 64
     min_fee_per_byte: int = 1  # consensus fee floor, quanta per serialized byte
     # --- identity -----------------------------------------------------------
-    genesis_timestamp: int = 1767225600  # 2026-01-01T00:00:00Z
-    genesis_message: str = "QuantisCoin genesis: 1/2 + 1/4 + 1/8 + ... = 1"
+    genesis_timestamp: int = 1791763200  # 2026-10-12T00:00:00Z (network restart)
+    genesis_message: str = "QuantisCoin by Om Palsule, 12 Oct 2026: slow and steady"
     address_version: int = 0x3A  # Base58Check version byte
 
     def __post_init__(self) -> None:

@@ -188,6 +188,56 @@ def _cmd_export_data(args) -> int:
     return 0
 
 
+def _cmd_reset_chain(args) -> int:
+    """Start a fresh blockchain but keep every account, login, wallet and address.
+
+    Used when the network's rules change (a restart). Coin balances start again from zero,
+    because they live on the old chain. A full backup is written first.
+    """
+    import json
+    import sqlite3
+    import time
+    from pathlib import Path
+
+    from .config import NodeConfig
+    from .core.params import get_network
+    from .storage.db import Database
+
+    if not args.yes:
+        print("This erases the blockchain (blocks and balances) and keeps accounts and wallets.\n"
+              "Stop the node first, then run again with --yes.", file=sys.stderr)
+        return 2
+    cfg = (NodeConfig.load(args.config) if args.config else NodeConfig()).with_env()
+    current = get_network(cfg.network).magic.hex()
+    path = Path(cfg.db_path)
+    if not path.is_file():
+        print(f"no database at {path}; nothing to reset", file=sys.stderr)
+        return 2
+    backups = Path(cfg.data_dir) / "backups"
+    backups.mkdir(parents=True, exist_ok=True)
+    backup = backups / time.strftime("before-reset-%Y%m%d-%H%M%S.sqlite3")
+    with sqlite3.connect(path) as src, sqlite3.connect(backup) as dst:
+        src.backup(dst)
+    db = Database(path)
+    try:
+        magics = {json.loads(k).get("network_magic", "") for (k,) in db.all("SELECT keystore FROM wallets")}
+        legacy = {m for m in (db.get_meta("legacy_magics") or "").split(",") if m}
+        legacy = sorted((legacy | magics) - {current, ""})
+        with db.transaction():
+            for table in ("blocks", "active", "utxo", "undo", "txindex", "addrtx", "mempool_txs"):
+                db.execute(f"DELETE FROM {table}")
+            db.execute("DELETE FROM meta WHERE key IN ('genesis', 'network')")
+            db.set_meta("legacy_magics", ",".join(legacy))
+        users = db.one("SELECT COUNT(*) FROM users")[0]
+        wallets = db.one("SELECT COUNT(*) FROM wallets")[0]
+    finally:
+        db.close()
+    print(f"Blockchain reset. Kept {users} account(s) and {wallets} wallet(s) with their addresses.")
+    print(f"Backup of the old data: {backup}")
+    print("Start the node again; it begins the new chain from its first block.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="quantis", description="QuantisCoin educational blockchain node")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -208,9 +258,12 @@ def main(argv: list[str] | None = None) -> int:
     e = sub.add_parser("export-data", help="copy this node's data into a folder, ready to move to a new host")
     e.add_argument("--config", help="TOML configuration file")
     e.add_argument("--out", default="data-export")
+    r = sub.add_parser("reset-chain", help="start a fresh blockchain, keeping all accounts and wallets")
+    r.add_argument("--config", help="TOML configuration file")
+    r.add_argument("--yes", action="store_true", help="confirm (stop the node first)")
     args = ap.parse_args(argv)
     return {"node": _cmd_node, "bench": _cmd_bench, "genesis": _cmd_genesis, "policy": _cmd_policy,
-            "admin": _cmd_admin, "export-data": _cmd_export_data}[args.cmd](args)
+            "admin": _cmd_admin, "export-data": _cmd_export_data, "reset-chain": _cmd_reset_chain}[args.cmd](args)
 
 
 if __name__ == "__main__":

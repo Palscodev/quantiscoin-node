@@ -34,9 +34,9 @@ Bitcoin-style issuance, scaled to a 10-million-coin cap.
 | | devnet (the real network) | regtest (automated tests only) |
 |---|---|---|
 | Initial reward R₀ | **25 QTS** = 2.5·10⁹ quanta | 1 000 QTS |
-| Halving interval H | **200 000 blocks** (≈ 139 days at 60 s) | 10 blocks |
-| Coinbase maturity | **10 blocks** (≈ 10 minutes) | 3 blocks |
-| Target block time | **60 s** | 15 s |
+| Halving interval H | **200 000 blocks** (≈ 11.4 years at 30 min) | 10 blocks |
+| Coinbase maturity | **10 blocks** (≈ 5 hours) | 3 blocks |
+| Target block time | **1800 s (30 min)** | 15 s |
 
 For height h ≥ 1 the **reward era** is k = ⌊(h − 1)/H⌋ and the subsidy is
 
@@ -64,7 +64,7 @@ S = Σ_{k≥0} H·R₀/2^k = H·R₀ · 1/(1 − ½) = 2·H·R₀ = 2 · 200 000
 S_int = H · (2·R₀ − 11) quanta = 200 000 · 4 999 999 989 = 999 999 997 800 000 quanta = 9 999 999.978 QTS
 ```
 
-Rounding destroys exactly 11·H quanta (0.022 QTS). The subsidy is 1 quantum in era 31 and **0 from era 32 onward**, because 2.5·10⁹ < 2³². That is 32 × 200 000 = 6.4 million blocks, about 12 years at one block per minute. After that, miners earn only fees. `MAX_MONEY` = 2·H·R₀ = 10⁷ QTS bounds every amount and every sum in consensus checks.
+Rounding destroys exactly 11·H quanta (0.022 QTS). The subsidy is 1 quantum in era 31 and **0 from era 32 onward**, because 2.5·10⁹ < 2³². That is 32 × 200 000 = 6.4 million blocks, about 365 years at one block every 30 minutes (half of all coins are issued in the first ≈ 11.4 years). After that, miners earn only fees. `MAX_MONEY` = 2·H·R₀ = 10⁷ QTS bounds every amount and every sum in consensus checks.
 
 **Configurable H.** H is consensus-critical: it is included in the network magic, so changing it creates a different network. Tests: `test_monetary.py`, which covers the 25 → 12.5 → 6.25 sequence, era boundaries, exhaustion at era 32, the popcount identity, the exact realized supply, era-edge cumulative sums, and that a changed H changes the magic.
 
@@ -134,10 +134,10 @@ E[hashes] = 2²⁵⁶ / (T + 1),        E[block time] = E[hashes] / (network has
 work(T) = ⌊2²⁵⁶ / (T + 1)⌋,        difficulty = pow_limit / T
 ```
 
-On devnet, `initial_target` = 2²²⁶, so a block needs about **1.07 billion hashes** on average until the first retarget. `pow_limit` (the easiest target ever allowed) is 2²³⁰, about **67 million hashes**: the difficulty never falls below that, however few people mine. Measured on this project's development PC (see [BENCHMARKS.md](BENCHMARKS.md)): 8 browser threads sustained about 1.6 MH/s, so a lone PC needs about 11 minutes per block at launch difficulty and about 42 s at the floor; one Python worker (about 0.25 MH/s) needs about 4.5 minutes per block at the floor. A Raspberry Pi has not been measured. Once many people mine, the controller raises the difficulty so that the *whole network* finds one block per minute.
+On devnet, `initial_target` = 2²²⁶, so a block needs about **1.07 billion hashes** on average until the first retarget. `pow_limit` (the easiest target ever allowed) is 2²³⁰, about **67 million hashes**: the difficulty never falls below that, however few people mine. Measured on this project's development PC (see [BENCHMARKS.md](BENCHMARKS.md)): 8 browser threads sustained about 1.6 MH/s, so a lone PC needs about 11 minutes per block at launch difficulty and about 42 s at the floor; one Python worker (about 0.25 MH/s) needs about 4.5 minutes per block at the floor. A Raspberry Pi has not been measured. Once many people mine, the controller raises the difficulty so that the *whole network* finds one block about every 30 minutes.
 
 ### 6.2 Controller
-Let W = 10 (retarget window), T_b = 60 s, E = W·T_b = 600 s, d = 2 (damping), c = 4 (clamp).
+Let W = 10 (retarget window), T_b = 1800 s, E = W·T_b = 18 000 s, d = 2 (damping), c = 4 (clamp).
 
 * If h is not a multiple of W, or h is below the first retarget height, then target(h) = target(h − 1). Block 1 uses `initial_target`, because the genesis target is not inherited.
 * The **first retarget height** is the first multiple of W that is ≥ W + mtp_span + 1 = 22, i.e. **h = 30**. This guarantees that neither median used below ever includes the genesis timestamp, which is a fixed constant rather than a real mining time.
@@ -192,11 +192,11 @@ r = 10, M = 8, B* = 64 000 bytes; B = current mempool bytes
 | Bounded linear congestion multiplier | Our design choice. **Open research question:** across realistic arrival-rate distributions, does M = 8 with a linear ramp produce lower fee variance than an exponential ramp, for the same spam cost? This is testable with mempool simulations and has not been done here. |
 
 ## 10. Genesis and network identity
-`magic = SHA-256("QUANTIS/net/v1" ‖ canonical_json(NetworkParams))[:4]`. The genesis block is derived entirely from the parameters: a fixed timestamp of 2026-01-01T00:00:00Z, a coinbase with no outputs carrying the genesis message, target = pow_limit, and the smallest nonce that satisfies the PoW. Every node recomputes it at start-up. Run `python -m quantis genesis` to print the result:
+`magic = SHA-256("QUANTIS/net/v1" ‖ canonical_json(NetworkParams))[:4]`. The genesis block is derived entirely from the parameters: a fixed timestamp (devnet: 2026-10-12T00:00:00Z, the network restart), a coinbase with no outputs carrying the genesis message, target = pow_limit, and the smallest nonce that satisfies the PoW. Every node recomputes it at start-up. Run `python -m quantis genesis` to print the result:
 
 | network | magic | genesis hash |
 |---|---|---|
-| devnet | `eef9c01e` | `000009c2775c91d393eb62ac56a81cb5070315596355833ad183568fb0d18b3d` (nonce 1 785 437) |
+| devnet | `cd30e428` | `00000033a93d9e8d8c7316c8e16239df4ba9f09d5e237be479e7135eeff27d82` (nonce 113 177 371) |
 | regtest | `70451193` | `71870e80fc67bbcc4719c23da325de1f9bae2ae9dcf4037efd5e16ea06e4dd83` |
 
 ## 11. Consensus vs local parameters

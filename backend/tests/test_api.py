@@ -471,3 +471,45 @@ def test_live_network_hashrate_adds_up_reporting_miners(site):
     for k, (r, t) in list(site.node.webjobs.rates.items()):
         site.node.webjobs.rates[k] = (r, t - 120)
     assert site.client().get("/api/status").json()["live_miners"] == 0
+
+
+def test_chain_restart_keeps_accounts_wallets_and_addresses(tmp_path):
+    import json
+    from quantis.__main__ import main as cli
+    from quantis.wallet.keystore import Keystore
+    s = Site(tmp_path)
+    s.admin()
+    u = s.user("keeper")
+    old_addr = u.get("/api/me/wallet").json()["addresses"][0]["address"]
+    # Make the member's wallet look like it came from the network before the restart:
+    # same secret seed, sealed with a different network fingerprint.
+    name = "u-2"
+    seed = s.node.wallets._load(name).unlock(PASS)
+    old_magic = bytes.fromhex("0badc0de")
+    old_ks = Keystore.create(PASS, old_magic, s.node.params.address_version, seed=seed)
+    s.node.db.execute("UPDATE wallets SET keystore=? WHERE name=?", (old_ks.to_json(), name))
+    _mine_to(s, old_addr, 3)  # coins on the old chain
+    s.node.shutdown()
+    s.node.db.close()
+
+    cfg = tmp_path / "node.toml"
+    cfg.write_text(f'network = "regtest"\ndata_dir = "{(tmp_path / "n").as_posix()}"\n')
+    assert cli(["reset-chain", "--config", str(cfg)]) == 2  # refuses without --yes
+    assert cli(["reset-chain", "--config", str(cfg), "--yes"]) == 0
+    assert list((tmp_path / "n" / "backups").glob("before-reset-*.sqlite3"))
+
+    t = Site(tmp_path)  # fresh chain, same data directory
+    assert t.node.chain.height == 0 and t.node.accounts.has_admin()
+    c = t.client()
+    assert c.post("/api/auth/login", json={"username": "keeper", "password": PASS}).status_code == 200
+    w = c.get("/api/me/wallet").json()
+    assert w["addresses"][0]["address"] == old_addr  # same address
+    assert w["balance"]["confirmed"] == 0  # balances belong to the old chain
+    _mine_to(t, old_addr, 1 + t.node.chain.p.coinbase_maturity)
+    other = t.user("other").get("/api/me/wallet").json()["addresses"][0]["address"]
+    pv = c.post("/api/me/preview", json={"to": other, "amount": COIN}).json()
+    r = c.post("/api/me/send", json={"to": other, "amount": COIN, "fee": pv["fee"], "passphrase": PASS})
+    assert r.status_code == 200, r.text  # the old wallet signs on the new chain
+    sealed = json.loads(t.node.db.one("SELECT keystore FROM wallets WHERE name=?", (name,))[0])
+    assert sealed["network_magic"] == t.node.params.magic.hex()  # quietly re-sealed for this network
+    t.node.shutdown()

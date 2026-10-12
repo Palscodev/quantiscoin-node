@@ -83,14 +83,16 @@ class Keystore:
         return b"QUANTIS/keystore/v1|" + magic
 
     @classmethod
-    def from_json(cls, text: str, magic: bytes) -> "Keystore":
+    def from_json(cls, text: str, magic: bytes, accept: frozenset[str] = frozenset()) -> "Keystore":
+        """`accept`: extra network fingerprints (hex) to allow, e.g. the networks this node ran
+        before a chain restart, so wallets and backup files made there still open."""
         try:
             data = json.loads(text)
         except json.JSONDecodeError as e:
             raise KeystoreError("backup is not valid JSON") from e
         if not isinstance(data, dict) or data.get("version") != KEYSTORE_VERSION:
             raise KeystoreError("unsupported keystore version")
-        if data.get("network_magic") != magic.hex():
+        if data.get("network_magic") != magic.hex() and data.get("network_magic") not in accept:
             raise KeystoreError("backup belongs to a different network")
         for key in ("kdf", "cipher", "addresses"):
             if key not in data:
