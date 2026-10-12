@@ -92,6 +92,23 @@ def create_api_app(node: "Node") -> FastAPI:
     }
 
     # ------------------------------------------------------------ helpers
+    def save_memo(txid: str, memo: str) -> None:
+        memo = " ".join(memo.split())[:140]  # one line, trimmed
+        if memo:
+            node.db.execute("INSERT OR REPLACE INTO tx_memos VALUES (?, ?, ?)", (bytes.fromhex(txid), memo, int(time.time())))
+
+    def attach_memos(items: list[dict]) -> list[dict]:
+        """Add each payment's private note. Only the sender's and recipient's own histories show it."""
+        if not items:
+            return items
+        ids = [bytes.fromhex(i["txid"]) for i in items]
+        marks = ",".join("?" * len(ids))
+        notes = {t.hex(): m for t, m in node.db.all(f"SELECT txid, memo FROM tx_memos WHERE txid IN ({marks})", tuple(ids))}
+        for i in items:
+            if i["txid"] in notes:
+                i["memo"] = notes[i["txid"]]
+        return items
+
     def client_ip(request: Request) -> str:
         if cfg.trust_proxy:
             # First X-Forwarded-For entry = the visitor. (Through Vercel + Cloudflare, cf-connecting-ip
@@ -471,7 +488,8 @@ def create_api_app(node: "Node") -> FastAPI:
     @app.get("/api/me/history")
     def my_history(limit: int = 50, user: User = Depends(require_user)):
         with node.lock:
-            return {"items": node.wallets.history(user.wallet_name, max(1, min(limit, 200)))}
+            items = node.wallets.history(user.wallet_name, max(1, min(limit, 200)))
+        return {"items": attach_memos(items)}
 
     @app.post("/api/me/addresses")
     def my_new_address(body: schemas.Passphrase, user: User = Depends(require_user)):
@@ -497,6 +515,7 @@ def create_api_app(node: "Node") -> FastAPI:
         limit("send", f"u{user.id}")
         with node.lock:
             result = node.wallets.send(user.wallet_name, body.passphrase, body.to, body.amount, body.fee)
+            save_memo(result["txid"], body.memo)
             entry = node.mempool.entries[bytes.fromhex(result["txid"])]
             node.persist_mempool()
         node.events.publish("tx", {"txid": result["txid"], "fee": entry.fee, "size": entry.size})

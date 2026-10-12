@@ -73,6 +73,7 @@ class TxSend(BaseModel):
     amount: int = Field(gt=0, le=MAX_AMOUNT)
     fee: int = Field(ge=0, le=MAX_AMOUNT)
     passphrase: str = Field(min_length=1, max_length=256)
+    memo: str = Field(default="", max_length=140)  # optional private note, like a bank transfer's reference
 
 
 class RawTx(BaseModel):

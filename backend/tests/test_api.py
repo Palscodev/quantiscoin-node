@@ -527,3 +527,19 @@ def test_shop_widget_mines_for_the_shops_address_without_login(site):
     # another visitor can't submit someone else's job
     assert site.client().post("/api/widget/submit", json={"client": "zzzz9999", "job_id": job["job_id"], "nonce": "0"}).json()["status"] == "stale"
     assert site.client().get("/api/status").json()["live_miners"] >= 1
+
+
+def test_payment_note_shows_for_sender_and_recipient(site):
+    site.admin()
+    alice, bob = site.user("alice"), site.user("bob")
+    a_addr = alice.get("/api/me/wallet").json()["addresses"][0]["address"]
+    b_addr = bob.get("/api/me/wallet").json()["addresses"][0]["address"]
+    _mine_to(site, a_addr, 1 + site.node.chain.p.coinbase_maturity)
+    pv = alice.post("/api/me/preview", json={"to": b_addr, "amount": COIN}).json()
+    too_long = alice.post("/api/me/send", json={"to": b_addr, "amount": COIN, "fee": pv["fee"], "passphrase": PASS, "memo": "x" * 141})
+    assert too_long.status_code in (400, 422)
+    r = alice.post("/api/me/send", json={"to": b_addr, "amount": COIN, "fee": pv["fee"], "passphrase": PASS, "memo": "  Pizza   money \n"}).json()
+    sent = next(i for i in alice.get("/api/me/history").json()["items"] if i["txid"] == r["txid"])
+    got = next(i for i in bob.get("/api/me/history").json()["items"] if i["txid"] == r["txid"])
+    assert sent["memo"] == got["memo"] == "Pizza money"
+    assert "memo" not in site.client().get(f"/api/tx/{r['txid']}").text  # not shown publicly in the explorer

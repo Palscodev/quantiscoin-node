@@ -68,6 +68,8 @@ CREATE TABLE IF NOT EXISTS exchange_trades (
 CREATE INDEX IF NOT EXISTS exchange_trades_user ON exchange_trades(user_id);
 DROP TABLE IF EXISTS exchange_orders;
 CREATE TABLE IF NOT EXISTS mempool_txs (txid BLOB PRIMARY KEY, raw BLOB NOT NULL, received INTEGER NOT NULL);
+-- Private notes on payments ("what it's for"). Kept on this server only, never on the public blockchain.
+CREATE TABLE IF NOT EXISTS tx_memos (txid BLOB PRIMARY KEY, memo TEXT NOT NULL, created INTEGER NOT NULL);
 """
 
 

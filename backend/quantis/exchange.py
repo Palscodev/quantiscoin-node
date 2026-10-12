@@ -149,13 +149,16 @@ class DemoProvider(ExchangeProvider):
             "test_cards": [{"number": n, "brand": b, "result": err or "Payment succeeds"} for n, (b, err) in TEST_CARDS.items()],
         }
 
-    def _transfer(self, wallet: str, passphrase: str, to: str, amount: int) -> str:
+    def _transfer(self, wallet: str, passphrase: str, to: str, amount: int, memo: str = "") -> str:
         """Sign and broadcast a real on-chain payment, exactly like the wallet's Send button."""
         node = self.node
         with node.lock:
             fee = node.wallets.preview(wallet, to, amount)["fee"]
             result = node.wallets.send(wallet, passphrase, to, amount, fee)
             entry = node.mempool.entries[bytes.fromhex(result["txid"])]
+            if memo:
+                node.db.execute("INSERT OR REPLACE INTO tx_memos VALUES (?, ?, ?)",
+                                (bytes.fromhex(result["txid"]), memo, int(time.time())))
             node.persist_mempool()
         node.events.publish("tx", {"txid": result["txid"], "fee": entry.fee, "size": entry.size})
         node.peers.broadcast_tx(entry.tx)
@@ -276,7 +279,8 @@ class DemoProvider(ExchangeProvider):
             if available < q.qts:
                 raise ExchangeError(f"The exchange reserve only has {available / COIN:,.2f} QTS available right now. "
                                     "Try a smaller amount, or try again after more QTS is sold.")
-            txid = self._transfer(TREASURY, self._treasury_pass, self.node.wallets.first_address(user.wallet_name), q.qts)
+            txid = self._transfer(TREASURY, self._treasury_pass, self.node.wallets.first_address(user.wallet_name), q.qts,
+                                  "Bought on Buy & sell (demo)")
             return self._record(user, q, method, brand, last4, "completed", None, txid)
 
     def sell(self, user: "User", quote_id: str, passphrase: str) -> dict:
@@ -286,7 +290,7 @@ class DemoProvider(ExchangeProvider):
             if spendable < q.qts:
                 raise ExchangeError(f"Your wallet can spend {spendable / COIN:,.8f} QTS right now (after the network fee). "
                                     "Lower the amount.")
-            txid = self._transfer(user.wallet_name, passphrase, self.treasury_address, q.qts)
+            txid = self._transfer(user.wallet_name, passphrase, self.treasury_address, q.qts, "Sold on Buy & sell (demo)")
             return self._record(user, q, "cash", None, None, "completed", None, txid)
 
 
