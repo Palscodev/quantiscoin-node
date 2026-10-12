@@ -251,6 +251,9 @@ class Node:
                 "difficulty": p.pow_limit / target,
                 "target_block_time": p.target_block_time,
                 "observed_block_time": self.observed_interval(),
+                # Live: speeds reported by miners in the last 90 s, plus this server's own CPU miner.
+                "live_hashrate": self.webjobs.live_hashrate()[0] + (self.miner.hashrate or 0),
+                "live_miners": self.webjobs.live_hashrate()[1] + (1 if self.miner.hashrate else 0),
                 "reward_era": reward_era(next_height, p),
                 "current_reward": block_subsidy(next_height, p),
                 "next_reward": block_subsidy(next_height + blocks_until_next_halving(height, p), p),

@@ -511,8 +511,10 @@ def create_api_app(node: "Node") -> FastAPI:
         )
 
     @app.post("/api/me/mine/job")
-    def mine_job(user: User = Depends(require_user)):
+    def mine_job(body: schemas.MineJob | None = None, user: User = Depends(require_user)):
         limit("job", f"u{user.id}")
+        if body and body.hashrate is not None:
+            node.webjobs.report(user.id, body.client, body.hashrate)
         payout = decode_address(node.wallets.first_address(user.wallet_name), p.address_version)
         return node.webjobs.new_job(user.id, payout)
 

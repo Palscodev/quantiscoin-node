@@ -79,6 +79,12 @@ class RawTx(BaseModel):
     hex: str = Field(min_length=2, max_length=40_000, pattern=r"^[0-9a-fA-F]+$")
 
 
+class MineJob(BaseModel):
+    # Optional live speed report, so the site can show everyone's real share of the network.
+    hashrate: float | None = Field(default=None, ge=0, le=1e13)
+    client: str = Field(default="", max_length=32, pattern=r"^[A-Za-z0-9_-]*$")
+
+
 class MineSubmit(BaseModel):
     job_id: str = Field(min_length=8, max_length=64, pattern=r"^[0-9a-f]+$")
     nonce: str = Field(min_length=1, max_length=20, pattern=r"^[0-9]+$")  # decimal u64 (exact in JSON)

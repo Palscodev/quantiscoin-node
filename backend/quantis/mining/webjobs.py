@@ -44,6 +44,7 @@ class WebJobs:
         self.jobs: dict[str, Job] = {}
         self.lock = threading.Lock()
         self.found: dict[int, int] = {}  # user_id -> blocks accepted this server session
+        self.rates: dict[str, tuple[float, float]] = {}  # "user:client" -> (hashes/s, reported at)
 
     def _expire(self) -> None:
         now = time.monotonic()
@@ -51,6 +52,19 @@ class WebJobs:
         for jid in [j.id for j in self.jobs.values()
                     if now - j.created > JOB_TTL or j.template.header.prev_hash != tip]:
             del self.jobs[jid]
+
+    def report(self, user_id: int, client: str, hashrate: float) -> None:
+        """A miner's current speed, sent with each work request (about every 30 s)."""
+        with self.lock:
+            self.rates[f"{user_id}:{client}"] = (float(hashrate), time.monotonic())
+
+    def live_hashrate(self, window: float = 90.0) -> tuple[float, int]:
+        """Total speed and number of miners that reported within `window` seconds."""
+        now = time.monotonic()
+        with self.lock:
+            self.rates = {k: v for k, v in self.rates.items() if now - v[1] <= window}
+            live = [r for r, _ in self.rates.values() if r > 0]
+        return sum(live), len(live)
 
     def new_job(self, user_id: int, payout_h20: bytes) -> dict:
         extra = b"QuantisCoin/web/" + os.urandom(8)  # unique merkle root per job

@@ -453,3 +453,21 @@ def test_website_address_also_serves_p2p_and_tells_proxied_peers_apart(tmp_path)
     assert both.get("/p2p/hello", headers=bad).status_code == 403
     assert both.get("/p2p/hello", headers=good).status_code == 200
     s.node.shutdown()
+
+
+def test_live_network_hashrate_adds_up_reporting_miners(site):
+    site.admin()
+    alice, bob = site.user("alice"), site.user("bob")
+    assert alice.post("/api/me/mine/job", json={"hashrate": 3_000_000, "client": "tab1"}).status_code == 200
+    assert alice.post("/api/me/mine/job", json={"hashrate": 1_000_000, "client": "tab2"}).status_code == 200
+    assert bob.post("/api/me/mine/job", json={"hashrate": 4_000_000, "client": "laptop"}).status_code == 200
+    assert bob.post("/api/me/mine/job").status_code == 200  # reporting is optional
+    st = site.client().get("/api/status").json()
+    assert st["live_hashrate"] == 8_000_000 and st["live_miners"] == 3
+    # a newer report from the same tab replaces the old one
+    alice.post("/api/me/mine/job", json={"hashrate": 2_000_000, "client": "tab1"})
+    assert site.client().get("/api/status").json()["live_hashrate"] == 7_000_000
+    # reports older than 90 s drop out
+    for k, (r, t) in list(site.node.webjobs.rates.items()):
+        site.node.webjobs.rates[k] = (r, t - 120)
+    assert site.client().get("/api/status").json()["live_miners"] == 0
